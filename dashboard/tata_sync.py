@@ -46,14 +46,15 @@ class TATASync:
             templates_synced = 0
             for template_data in sample_templates:
                 template, created = WhatsAppTemplate.objects.get_or_create(
-                    name=template_data['name'],
+                    stage=template_data['stage'],
                     defaults={
-                        'stage': template_data['stage'],
+                        'name': template_data['name'],
                         'message_template': template_data['message_template'],
                         'is_active': True
                     }
                 )
-                templates_synced += 1
+                if created:
+                    templates_synced += 1
             
             return {'success': True, 'count': templates_synced}
                 
