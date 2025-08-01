@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from .models import (Project, ProjectImage, Lead, TeamMember, Meeting, Earning, 
                      Task, TaskStage, TaskCategory, CalendarEvent, Notification, 
                      Attendance, LeadNote, IVRCallLog, LeadStage, WhatsAppTemplate, 
-                     Client, ProjectUnit, MarketingExpense)
+                     Client, ProjectUnit, MarketingExpense, WhatsAppMessage)
 import json
 from urllib.parse import urlencode
 import pandas as pd
