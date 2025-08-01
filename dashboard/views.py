@@ -2246,7 +2246,7 @@ def get_tata_conversations(request):
         
         # Get latest message for each phone number
         latest_messages = WhatsAppMessage.objects.values('phone_number').annotate(
-            latest_timestamp=Max('timestamp')
+            latest_timestamp=Max('created_at')
         ).order_by('-latest_timestamp')
         
         for item in latest_messages:
@@ -2254,16 +2254,16 @@ def get_tata_conversations(request):
             # Get all messages for this phone number
             messages = WhatsAppMessage.objects.filter(
                 phone_number=phone
-            ).order_by('timestamp')
+            ).order_by('created_at')
             
             conversations[phone] = []
             for msg in messages:
                 conversations[phone].append({
-                    'id': msg.message_id,
-                    'text': msg.message_text,
-                    'timestamp': msg.timestamp,
-                    'type': msg.message_type,
-                    'sender': phone if msg.message_type == 'incoming' else 'agent'
+                    'id': msg.message_id or str(msg.id),
+                    'text': msg.message_content,
+                    'timestamp': int(msg.created_at.timestamp()),
+                    'type': 'incoming' if msg.status == 'received' else 'outgoing',
+                    'sender': phone if msg.status == 'received' else 'agent'
                 })
         
         return JsonResponse({'success': True, 'conversations': conversations})
@@ -2304,10 +2304,8 @@ def send_tata_reply(request):
                 # Store outgoing message in database
                 WhatsAppMessage.objects.create(
                     phone_number=phone,
-                    message_text=message,
+                    message_content=message,
                     message_id=response.json().get('id', ''),
-                    timestamp=str(int(timezone.now().timestamp())),
-                    message_type='outgoing',
                     status='sent'
                 )
                 
@@ -2349,10 +2347,8 @@ def tata_webhook(request):
                 # Store message in database
                 WhatsAppMessage.objects.create(
                     phone_number=phone,
-                    message_text=text,
+                    message_content=text,
                     message_id=msg_id,
-                    timestamp=timestamp,
-                    message_type='incoming',
                     status='received'
                 )
                 
