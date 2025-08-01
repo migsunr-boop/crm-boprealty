@@ -15,6 +15,7 @@ from .models import (Project, ProjectImage, Lead, TeamMember, Meeting, Earning,
                      Task, TaskStage, TaskCategory, CalendarEvent, Notification, 
                      Attendance, LeadNote, IVRCallLog, LeadStage, WhatsAppTemplate, 
                      Client, ProjectUnit, MarketingExpense, WhatsAppMessage)
+from .tata_sync import TATASync
 import json
 from urllib.parse import urlencode
 import pandas as pd
@@ -2229,46 +2230,29 @@ def sync_tata_calls(request):
 @login_required
 def tata_chat_panel(request):
     """TATA Chat Panel - integrated WhatsApp/RCS messaging"""
+    # Sync data on page load
+    sync = TATASync()
+    sync_results = sync.sync_all_data()
+    
     context = {
         'page_title': 'TATA Chat Panel',
-        'auth_token': 'YOUR_TATA_AUTH_TOKEN_HERE'  # Replace with actual token
+        'sync_results': sync_results
     }
     return render(request, 'dashboard/tata_chat_panel.html', context)
 
 @login_required
 def get_tata_conversations(request):
-    """Get TATA conversations from database"""
+    """Get all TATA conversations"""
     try:
-        # Get all WhatsApp messages grouped by phone number
-        from django.db.models import Max
+        sync = TATASync()
+        result = sync.get_all_conversations()
+        return JsonResponse(result)
         
-        conversations = {}
-        
-        # Get latest message for each phone number
-        latest_messages = WhatsAppMessage.objects.values('phone_number').annotate(
-            latest_timestamp=Max('created_at')
-        ).order_by('-latest_timestamp')
-        
-        for item in latest_messages:
-            phone = item['phone_number']
-            # Get all messages for this phone number
-            messages = WhatsAppMessage.objects.filter(
-                phone_number=phone
-            ).order_by('created_at')
-            
-            conversations[phone] = []
-            for msg in messages:
-                conversations[phone].append({
-                    'id': msg.message_id or str(msg.id),
-                    'text': msg.message_content,
-                    'timestamp': int(msg.created_at.timestamp()),
-                    'type': 'incoming' if msg.status == 'received' else 'outgoing',
-                    'sender': phone if msg.status == 'received' else 'agent'
-                })
-        
-        return JsonResponse({'success': True, 'conversations': conversations})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
 @login_required
 def send_tata_reply(request):
@@ -2281,34 +2265,10 @@ def send_tata_reply(request):
             phone = data.get('phone')
             message = data.get('message')
             
-            # Send via TATA API
-            import requests
-            from django.conf import settings
+            sync = TATASync()
+            result = sync.send_session_message(phone, message)
             
-            url = 'https://wb.omni.tatatelebusiness.com/whatsapp-cloud/messages'
-            headers = {
-                'Authorization': f'Bearer {settings.TATA_AUTH_TOKEN}',
-                'Content-Type': 'application/json'
-            }
-            
-            payload = {
-                'to': phone,
-                'type': 'text',
-                'source': 'crm',
-                'text': {'body': message}
-            }
-            
-            response = requests.post(url, headers=headers, json=payload)
-            
-            if response.status_code == 200:
-                # Store outgoing message in database
-                WhatsAppMessage.objects.create(
-                    phone_number=phone,
-                    message_content=message,
-                    message_id=response.json().get('id', ''),
-                    status='sent'
-                )
-                
+            if result['success']:
                 # Add note to lead
                 lead = Lead.objects.filter(phone=phone).first()
                 if lead:
@@ -2321,7 +2281,7 @@ def send_tata_reply(request):
                 
                 return JsonResponse({'success': True})
             else:
-                return JsonResponse({'success': False, 'error': 'Failed to send message'})
+                return JsonResponse({'success': False, 'error': result['error']})
                 
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
@@ -2330,7 +2290,7 @@ def send_tata_reply(request):
 
 @csrf_exempt
 def tata_webhook(request):
-    """Webhook endpoint for TATA messages"""
+    """Enhanced webhook endpoint for TATA messages"""
     if request.method == 'POST':
         try:
             import json
@@ -2355,20 +2315,36 @@ def tata_webhook(request):
                 # Try to link to existing lead or create new one
                 lead = Lead.objects.filter(phone=phone).first()
                 if not lead:
+                    # Get contact name from payload if available
+                    contact_name = "Unknown"
+                    if 'contacts' in payload and payload['contacts']:
+                        contact_name = payload['contacts'][0].get('profile', {}).get('name', f"WhatsApp Lead {phone}")
+                    
                     lead = Lead.objects.create(
-                        name=f"WhatsApp Lead {phone}",
+                        name=contact_name,
                         phone=phone,
                         source='whatsapp',
-                        notes=f"First message: {text}"
+                        notes=f"First WhatsApp message: {text}"
                     )
                 
                 # Add note to lead
                 LeadNote.objects.create(
                     lead=lead,
-                    note=f"WhatsApp message: {text}",
+                    note=f"WhatsApp message received: {text}",
                     call_type='whatsapp',
                     created_by_id=1  # Admin user
                 )
+            
+            # Handle status updates (sent, delivered, read, failed)
+            if 'statuses' in payload:
+                for status in payload['statuses']:
+                    msg_id = status['id']
+                    status_type = status['status']
+                    
+                    # Update message status in database
+                    WhatsAppMessage.objects.filter(message_id=msg_id).update(
+                        status=status_type
+                    )
             
             return JsonResponse({'status': 'ok'})
         except Exception as e:
@@ -3148,3 +3124,48 @@ def mark_all_notifications_read(request):
 def view_leads(request):
     """Alternative view for leads - redirects to main leads view"""
     return redirect('leads')
+
+# TATA Sync API endpoints
+@login_required
+def sync_tata_templates(request):
+    """API endpoint to sync TATA templates"""
+    if request.method == 'POST':
+        try:
+            sync = TATASync()
+            result = sync.sync_templates()
+            return JsonResponse(result)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@login_required
+def sync_tata_messages(request):
+    """API endpoint to sync TATA messages"""
+    if request.method == 'POST':
+        try:
+            sync = TATASync()
+            result = sync.sync_messages()
+            return JsonResponse(result)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@login_required
+def sync_all_tata_data(request):
+    """API endpoint to sync all TATA data"""
+    if request.method == 'POST':
+        try:
+            sync = TATASync()
+            results = sync.sync_all_data()
+            return JsonResponse(results)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@login_required
+def tata_sync_panel(request):
+    """TATA Sync Panel - manage data synchronization"""
+    context = {
+        'page_title': 'TATA Data Sync Panel'
+    }
+    return render(request, 'dashboard/tata_sync_panel.html', context)

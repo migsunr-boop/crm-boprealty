@@ -1,0 +1,288 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}TATA Data Sync Panel{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-sync-alt me-2"></i>TATA Data Sync Panel</h2>
+                <button class="btn btn-primary" onclick="syncAllData()">
+                    <i class="fas fa-sync me-2"></i>Sync All Data
+                </button>
+            </div>
+
+            <!-- Sync Status Cards -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card border-primary">
+                        <div class="card-body text-center">
+                            <i class="fas fa-file-alt fa-3x text-primary mb-3"></i>
+                            <h5>Templates</h5>
+                            <p class="text-muted">WhatsApp message templates</p>
+                            <button class="btn btn-outline-primary" onclick="syncTemplates()">
+                                <i class="fas fa-sync me-2"></i>Sync Templates
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-comments fa-3x text-success mb-3"></i>
+                            <h5>Messages</h5>
+                            <p class="text-muted">Chat conversations & history</p>
+                            <button class="btn btn-outline-success" onclick="syncMessages()">
+                                <i class="fas fa-sync me-2"></i>Sync Messages
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
+                            <h5>Analytics</h5>
+                            <p class="text-muted">Message insights & reports</p>
+                            <button class="btn btn-outline-info" onclick="viewAnalytics()">
+                                <i class="fas fa-chart-bar me-2"></i>View Analytics
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sync Results -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list me-2"></i>Sync Results</h5>
+                </div>
+                <div class="card-body">
+                    <div id="syncResults">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-info-circle fa-2x mb-3"></i>
+                            <p>Click sync buttons above to fetch data from TATA APIs</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock me-2"></i>Recent WhatsApp Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Phone Number</th>
+                                    <th>Message</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                    <th>Lead</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentMessages">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">Loading recent messages...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Sync functions
+function syncTemplates() {
+    showLoading('Syncing templates...');
+    
+    fetch('{% url "sync_tata_templates" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showSyncResult('Templates', data.count || 0, 'success');
+        } else {
+            showSyncResult('Templates', 0, 'error', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showSyncResult('Templates', 0, 'error', error.message);
+    });
+}
+
+function syncMessages() {
+    showLoading('Syncing messages...');
+    
+    fetch('{% url "sync_tata_messages" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showSyncResult('Messages', data.count || 0, 'success');
+            loadRecentMessages();
+        } else {
+            showSyncResult('Messages', 0, 'error', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showSyncResult('Messages', 0, 'error', error.message);
+    });
+}
+
+function syncAllData() {
+    showLoading('Syncing all TATA data...');
+    
+    fetch('{% url "sync_all_tata_data" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.status === 'completed') {
+            let resultsHtml = '<div class="alert alert-success"><h6>✅ Full Sync Completed!</h6>';
+            
+            if (data.templates && data.templates.success) {
+                resultsHtml += `<p>📄 Templates: ${data.templates.count || 0} synced</p>`;
+            }
+            
+            if (data.messages && data.messages.success) {
+                resultsHtml += `<p>💬 Messages: ${data.messages.message || 'Webhook active'}</p>`;
+            }
+            
+            resultsHtml += '</div>';
+            document.getElementById('syncResults').innerHTML = resultsHtml;
+            loadRecentMessages();
+        } else {
+            showSyncResult('All Data', 0, 'error', 'Sync failed');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showSyncResult('All Data', 0, 'error', error.message);
+    });
+}
+
+function showSyncResult(type, count, status, error = null) {
+    const alertClass = status === 'success' ? 'alert-success' : 'alert-danger';
+    const icon = status === 'success' ? '✅' : '❌';
+    
+    let html = `<div class="alert ${alertClass}">`;
+    html += `<h6>${icon} ${type} Sync ${status === 'success' ? 'Completed' : 'Failed'}</h6>`;
+    
+    if (status === 'success') {
+        html += `<p>Successfully synced ${count} ${type.toLowerCase()}</p>`;
+    } else {
+        html += `<p>Error: ${error}</p>`;
+    }
+    
+    html += '</div>';
+    
+    document.getElementById('syncResults').innerHTML = html;
+}
+
+function showLoading(message) {
+    document.getElementById('syncResults').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">${message}</p>
+        </div>
+    `;
+}
+
+function hideLoading() {
+    // Loading will be replaced by results
+}
+
+function loadRecentMessages() {
+    fetch('{% url "get_tata_conversations" %}')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.conversations) {
+            let html = '';
+            let messageCount = 0;
+            
+            // Get recent messages from all conversations
+            for (const [phone, messages] of Object.entries(data.conversations)) {
+                if (messageCount >= 10) break; // Limit to 10 recent messages
+                
+                const recentMessages = messages.slice(-3); // Last 3 messages per conversation
+                
+                recentMessages.forEach(msg => {
+                    if (messageCount >= 10) return;
+                    
+                    const statusBadge = msg.type === 'incoming' ? 
+                        '<span class="badge bg-success">Received</span>' : 
+                        '<span class="badge bg-primary">Sent</span>';
+                    
+                    const time = new Date(msg.timestamp * 1000).toLocaleString();
+                    const truncatedMessage = msg.text.length > 50 ? 
+                        msg.text.substring(0, 50) + '...' : msg.text;
+                    
+                    html += `
+                        <tr>
+                            <td>${phone}</td>
+                            <td>${truncatedMessage}</td>
+                            <td>${statusBadge}</td>
+                            <td>${time}</td>
+                            <td><a href="/leads/?search=${phone}" class="btn btn-sm btn-outline-primary">View Lead</a></td>
+                        </tr>
+                    `;
+                    messageCount++;
+                });
+            }
+            
+            if (html === '') {
+                html = '<tr><td colspan="5" class="text-center text-muted">No recent messages found</td></tr>';
+            }
+            
+            document.getElementById('recentMessages').innerHTML = html;
+        } else {
+            document.getElementById('recentMessages').innerHTML = 
+                '<tr><td colspan="5" class="text-center text-muted">Failed to load messages</td></tr>';
+        }
+    })
+    .catch(error => {
+        document.getElementById('recentMessages').innerHTML = 
+            '<tr><td colspan="5" class="text-center text-muted">Error loading messages</td></tr>';
+    });
+}
+
+function viewAnalytics() {
+    window.location.href = '{% url "analytics" %}';
+}
+
+// Load recent messages on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadRecentMessages();
+});
+</script>
+{% endblock %}
