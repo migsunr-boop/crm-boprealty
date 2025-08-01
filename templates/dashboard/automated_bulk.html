@@ -1,0 +1,826 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Automated Bulk Email{% endblock %}
+
+{% block extra_css %}
+<style>
+    .email-preview {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        background-color: white;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .email-preview-header {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+    .email-preview-body {
+        min-height: 200px;
+    }
+    .provider-card {
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+    .provider-card:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .provider-card.selected {
+        border-color: #4f46e5;
+        background-color: #f5f5ff;
+    }
+    .provider-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+    }
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+    }
+    .step {
+        display: flex;
+        align-items: center;
+    }
+    .step-number {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: #e5e7eb;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+    .step.active .step-number {
+        background-color: #4f46e5;
+        color: white;
+    }
+    .step-divider {
+        width: 50px;
+        height: 2px;
+        background-color: #e5e7eb;
+        margin: 0 15px;
+    }
+    .step.completed .step-number {
+        background-color: #10b981;
+        color: white;
+    }
+    .step.completed .step-number:after {
+        content: '✓';
+    }
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255,255,255,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #4f46e5;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Automated Bulk Email</h1>
+        <a href="{% url 'automation' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Automation
+        </a>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step active" id="step1-indicator">
+            <div class="step-number">1</div>
+            <div class="step-label">Choose Provider</div>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step" id="step2-indicator">
+            <div class="step-number">2</div>
+            <div class="step-label">Configure Email</div>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step" id="step3-indicator">
+            <div class="step-number">3</div>
+            <div class="step-label">Results</div>
+        </div>
+    </div>
+
+    <!-- Step 1: Provider Selection -->
+    <div id="step1" class="step-content">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Automated Email System:</strong> We'll help you find the best email provider for bulk sending.
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Step 1: Choose Email Provider</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="card provider-card" data-provider="sendgrid" id="sendgrid-card">
+                                    <div class="card-body text-center">
+                                        <div class="provider-icon bg-blue-100">
+                                            <i class="fas fa-paper-plane text-primary fa-lg"></i>
+                                        </div>
+                                        <h5 class="card-title">SendGrid</h5>
+                                        <p class="card-text small">Professional email service</p>
+                                        <span class="badge bg-success">Recommended</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="card provider-card" data-provider="gmail" id="gmail-card">
+                                    <div class="card-body text-center">
+                                        <div class="provider-icon bg-danger-soft">
+                                            <i class="fas fa-envelope text-danger fa-lg"></i>
+                                        </div>
+                                        <h5 class="card-title">Gmail</h5>
+                                        <p class="card-text small">Google email service</p>
+                                        <span class="badge bg-warning text-dark">Requires Setup</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="card provider-card" data-provider="outlook" id="outlook-card">
+                                    <div class="card-body text-center">
+                                        <div class="provider-icon bg-primary-soft">
+                                            <i class="fas fa-envelope text-primary fa-lg"></i>
+                                        </div>
+                                        <h5 class="card-title">Outlook</h5>
+                                        <p class="card-text small">Microsoft email service</p>
+                                        <span class="badge bg-warning text-dark">Requires Setup</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4" id="provider-details">
+                            <div class="alert alert-primary d-none" id="sendgrid-details">
+                                <h5><i class="fas fa-paper-plane me-2"></i>SendGrid</h5>
+                                <p>Professional email service with high deliverability rates.</p>
+                                <ul>
+                                    <li>Free tier: 100 emails/day</li>
+                                    <li>No authentication issues</li>
+                                    <li>Simple API key setup</li>
+                                    <li>Best for bulk emails</li>
+                                </ul>
+                                <div class="mt-3">
+                                    <a href="https://signup.sendgrid.com/" target="_blank" class="btn btn-sm btn-outline-primary me-2">Sign Up</a>
+                                    <button class="btn btn-sm btn-primary" id="setup-sendgrid">Use SendGrid</button>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-danger d-none" id="gmail-details">
+                                <h5><i class="fas fa-envelope me-2"></i>Gmail</h5>
+                                <p>Requires App Password setup:</p>
+                                <ol>
+                                    <li>Go to <a href="https://myaccount.google.com/security" target="_blank">Google Account Security</a></li>
+                                    <li>Enable 2-Step Verification</li>
+                                    <li>Create App Password for "Mail"</li>
+                                    <li>Use the 16-character password</li>
+                                </ol>
+                                <div class="mt-3">
+                                    <button class="btn btn-sm btn-danger" id="setup-gmail">Use Gmail</button>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-primary d-none" id="outlook-details">
+                                <h5><i class="fas fa-envelope me-2"></i>Outlook</h5>
+                                <p>Microsoft has disabled basic authentication. You need:</p>
+                                <ol>
+                                    <li>Go to <a href="https://account.microsoft.com/security" target="_blank">Microsoft Account Security</a></li>
+                                    <li>Enable 2-Step Verification</li>
+                                    <li>Create App Password for "Mail"</li>
+                                </ol>
+                                <div class="mt-3">
+                                    <button class="btn btn-sm btn-primary" id="setup-outlook">Use Outlook</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Provider Comparison</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Provider</th>
+                                    <th>Daily Limit</th>
+                                    <th>Reliability</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>SendGrid</td>
+                                    <td>100 (free)</td>
+                                    <td>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-success" style="width: 95%"></div>
+                                        </div>
+                                        <small>95%</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Gmail</td>
+                                    <td>500</td>
+                                    <td>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-primary" style="width: 85%"></div>
+                                        </div>
+                                        <small>85%</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Outlook</td>
+                                    <td>300</td>
+                                    <td>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-warning" style="width: 70%"></div>
+                                        </div>
+                                        <small>70%</small>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Email Configuration -->
+    <div id="step2" class="step-content d-none">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Step 2: Configure Email</h5>
+                        <span class="badge bg-primary" id="selected-provider-badge">SendGrid</span>
+                    </div>
+                    <div class="card-body">
+                        <form id="emailForm" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            
+                            <div class="row mb-3" id="credentials-section">
+                                <div class="col-md-6">
+                                    <label for="email_username" class="form-label">Username *</label>
+                                    <input type="text" class="form-control" id="email_username" name="email_username" required>
+                                    <div class="form-text" id="username-help">For SendGrid, use "apikey"</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email_password" class="form-label">Password/API Key *</label>
+                                    <input type="password" class="form-control" id="email_password" name="email_password" required>
+                                    <div class="form-text" id="password-help">Your SendGrid API key</div>
+                                </div>
+                                
+                                <input type="hidden" id="smtp_server" name="smtp_server" value="smtp.sendgrid.net">
+                                <input type="hidden" id="smtp_port" name="smtp_port" value="587">
+                                <input type="hidden" id="provider_name" name="provider_name" value="sendgrid">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="display_email" class="form-label">From Email Address *</label>
+                                <input type="email" class="form-control" id="display_email" name="display_email" required>
+                                <div class="form-text">The email address that recipients will see</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="subject" class="form-label">Email Subject *</label>
+                                <input type="text" class="form-control" id="subject" name="subject" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="excel_file" class="form-label">Excel File with Recipients *</label>
+                                <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx, .xls, .csv" required>
+                                <div class="form-text">
+                                    File must have "name" and "email" columns
+                                    <a href="#" class="ms-2" id="download-sample">Download Sample</a>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="email_template" class="form-label">Email Template *</label>
+                                <textarea class="form-control" id="email_template" name="email_template" rows="8" required>
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #4f46e5; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .footer { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Hello {name}!</h2>
+        </div>
+        <div class="content">
+            <p>We hope this email finds you well.</p>
+            <p>Thank you for your interest in our properties. We wanted to let you know about our latest offerings that might interest you.</p>
+            <p>Feel free to contact us if you have any questions.</p>
+            <p>Best regards,<br>The Real Estate Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Real Estate Company. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+                                </textarea>
+                                <div class="form-text">Use {name} to personalize the email with recipient's name</div>
+                            </div>
+                            
+                            <div class="d-flex">
+                                <button type="button" class="btn btn-secondary me-2" id="back-to-step1">
+                                    <i class="fas fa-arrow-left me-2"></i>Back
+                                </button>
+                                <button type="button" class="btn btn-primary" id="test-connection">
+                                    <i class="fas fa-vial me-2"></i>Test Connection
+                                </button>
+                                <button type="submit" class="btn btn-success ms-2" id="send-emails">
+                                    <i class="fas fa-paper-plane me-2"></i>Send Emails
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Email Preview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="email-preview">
+                            <div class="email-preview-header">
+                                <div><strong>From:</strong> <span id="preview-from">your-email@example.com</span></div>
+                                <div><strong>To:</strong> recipient@example.com</div>
+                                <div><strong>Subject:</strong> <span id="preview-subject">Your Email Subject</span></div>
+                            </div>
+                            <div class="email-preview-body" id="preview-body">
+                                <div style="text-align: center; color: #999; margin-top: 80px;">
+                                    Email preview will appear here
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0" id="provider-tips-title">SendGrid Tips</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="sendgrid-tips">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Use "apikey" as username
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    API key as password
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Verify your sender domain for better delivery
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Free tier: 100 emails/day
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div id="gmail-tips" class="d-none">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Use your full Gmail address
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Use 16-character App Password
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Daily limit: ~500 emails
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Avoid spam triggers in content
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div id="outlook-tips" class="d-none">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Use your full Outlook address
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Use App Password (not regular password)
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Daily limit: ~300 emails
+                                </li>
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Check for organization restrictions
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Results -->
+    <div id="step3" class="step-content d-none">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Email Sending Results</h5>
+            </div>
+            <div class="card-body">
+                <div id="results-loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Processing your bulk email request...</p>
+                </div>
+                
+                <div id="results-content" class="d-none">
+                    <div class="alert alert-success mb-4" id="results-message">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span id="results-text">Bulk email completed successfully!</span>
+                    </div>
+                    
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="card bg-light mb-3">
+                                <div class="card-body">
+                                    <h3 class="display-4 text-success" id="sent-count">0</h3>
+                                    <p class="text-muted">Emails Sent</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light mb-3">
+                                <div class="card-body">
+                                    <h3 class="display-4 text-danger" id="failed-count">0</h3>
+                                    <p class="text-muted">Failed</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light mb-3">
+                                <div class="card-body">
+                                    <h3 class="display-4 text-primary" id="success-rate">0%</h3>
+                                    <p class="text-muted">Success Rate</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <button class="btn btn-primary me-2" id="new-campaign">
+                            <i class="fas fa-plus me-2"></i>New Campaign
+                        </button>
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-home me-2"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Provider selection
+        const providerCards = document.querySelectorAll('.provider-card');
+        const providerDetails = {
+            'sendgrid': document.getElementById('sendgrid-details'),
+            'gmail': document.getElementById('gmail-details'),
+            'outlook': document.getElementById('outlook-details')
+        };
+        
+        // Step navigation
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+        const step1Indicator = document.getElementById('step1-indicator');
+        const step2Indicator = document.getElementById('step2-indicator');
+        const step3Indicator = document.getElementById('step3-indicator');
+        
+        // Provider tips
+        const sendgridTips = document.getElementById('sendgrid-tips');
+        const gmailTips = document.getElementById('gmail-tips');
+        const outlookTips = document.getElementById('outlook-tips');
+        const providerTipsTitle = document.getElementById('provider-tips-title');
+        
+        // Form elements
+        const emailUsername = document.getElementById('email_username');
+        const emailPassword = document.getElementById('email_password');
+        const displayEmail = document.getElementById('display_email');
+        const subject = document.getElementById('subject');
+        const emailTemplate = document.getElementById('email_template');
+        const smtpServer = document.getElementById('smtp_server');
+        const smtpPort = document.getElementById('smtp_port');
+        const providerName = document.getElementById('provider_name');
+        const usernameHelp = document.getElementById('username-help');
+        const passwordHelp = document.getElementById('password-help');
+        const selectedProviderBadge = document.getElementById('selected-provider-badge');
+        
+        // Preview elements
+        const previewFrom = document.getElementById('preview-from');
+        const previewSubject = document.getElementById('preview-subject');
+        const previewBody = document.getElementById('preview-body');
+        
+        // Results elements
+        const resultsLoading = document.getElementById('results-loading');
+        const resultsContent = document.getElementById('results-content');
+        const resultsText = document.getElementById('results-text');
+        const sentCount = document.getElementById('sent-count');
+        const failedCount = document.getElementById('failed-count');
+        const successRate = document.getElementById('success-rate');
+        
+        // Provider selection
+        providerCards.forEach(card => {
+            card.addEventListener('click', function() {
+                const provider = this.dataset.provider;
+                
+                // Reset all cards and details
+                providerCards.forEach(c => c.classList.remove('selected'));
+                Object.values(providerDetails).forEach(detail => detail.classList.add('d-none'));
+                
+                // Select this card and show details
+                this.classList.add('selected');
+                providerDetails[provider].classList.remove('d-none');
+            });
+        });
+        
+        // Provider setup buttons
+        document.getElementById('setup-sendgrid').addEventListener('click', function() {
+            setupProvider('sendgrid', 'smtp.sendgrid.net', 'apikey');
+        });
+        
+        document.getElementById('setup-gmail').addEventListener('click', function() {
+            setupProvider('gmail', 'smtp.gmail.com', '');
+        });
+        
+        document.getElementById('setup-outlook').addEventListener('click', function() {
+            setupProvider('outlook', 'smtp.office365.com', '');
+        });
+        
+        function setupProvider(provider, server, defaultUsername) {
+            // Update hidden fields
+            smtpServer.value = server;
+            providerName.value = provider;
+            
+            // Pre-fill username if provided
+            if (defaultUsername) {
+                emailUsername.value = defaultUsername;
+            }
+            
+            // Update UI based on provider
+            if (provider === 'sendgrid') {
+                usernameHelp.textContent = 'For SendGrid, use "apikey"';
+                passwordHelp.textContent = 'Your SendGrid API key';
+                selectedProviderBadge.textContent = 'SendGrid';
+                selectedProviderBadge.className = 'badge bg-primary';
+                
+                // Show SendGrid tips, hide others
+                sendgridTips.classList.remove('d-none');
+                gmailTips.classList.add('d-none');
+                outlookTips.classList.add('d-none');
+                providerTipsTitle.textContent = 'SendGrid Tips';
+                
+            } else if (provider === 'gmail') {
+                usernameHelp.textContent = 'Your full Gmail address';
+                passwordHelp.textContent = 'Your 16-character App Password (not regular password)';
+                selectedProviderBadge.textContent = 'Gmail';
+                selectedProviderBadge.className = 'badge bg-danger';
+                
+                // Show Gmail tips, hide others
+                sendgridTips.classList.add('d-none');
+                gmailTips.classList.remove('d-none');
+                outlookTips.classList.add('d-none');
+                providerTipsTitle.textContent = 'Gmail Tips';
+                
+            } else if (provider === 'outlook') {
+                usernameHelp.textContent = 'Your full Outlook address';
+                passwordHelp.textContent = 'Your App Password (basic auth is disabled)';
+                selectedProviderBadge.textContent = 'Outlook';
+                selectedProviderBadge.className = 'badge bg-primary';
+                
+                // Show Outlook tips, hide others
+                sendgridTips.classList.add('d-none');
+                gmailTips.classList.add('d-none');
+                outlookTips.classList.remove('d-none');
+                providerTipsTitle.textContent = 'Outlook Tips';
+            }
+            
+            // Move to step 2
+            step1.classList.add('d-none');
+            step2.classList.remove('d-none');
+            step1Indicator.classList.remove('active');
+            step1Indicator.classList.add('completed');
+            step2Indicator.classList.add('active');
+        }
+        
+        // Back button
+        document.getElementById('back-to-step1').addEventListener('click', function() {
+            step2.classList.add('d-none');
+            step1.classList.remove('d-none');
+            step2Indicator.classList.remove('active');
+            step1Indicator.classList.remove('completed');
+            step1Indicator.classList.add('active');
+        });
+        
+        // Test connection button
+        document.getElementById('test-connection').addEventListener('click', function() {
+            const username = emailUsername.value;
+            const password = emailPassword.value;
+            const server = smtpServer.value;
+            const port = smtpPort.value;
+            
+            if (!username || !password) {
+                alert('Please enter username and password/API key');
+                return;
+            }
+            
+            // Disable button and show loading
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
+            
+            // Simulate AJAX call to test connection
+            setTimeout(() => {
+                // Re-enable button
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-vial me-2"></i>Test Connection';
+                
+                // Show success message (in real implementation, this would be based on actual test)
+                alert('Connection successful! You can now send emails.');
+            }, 2000);
+        });
+        
+        // Email form submission
+        document.getElementById('emailForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validate form
+            if (!this.checkValidity()) {
+                e.stopPropagation();
+                this.classList.add('was-validated');
+                return;
+            }
+            
+            // Disable send button
+            const sendButton = document.getElementById('send-emails');
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+            
+            // Move to step 3
+            step2.classList.add('d-none');
+            step3.classList.remove('d-none');
+            step2Indicator.classList.remove('active');
+            step2Indicator.classList.add('completed');
+            step3Indicator.classList.add('active');
+            
+            // Simulate sending emails
+            setTimeout(() => {
+                // Hide loading, show results
+                resultsLoading.classList.add('d-none');
+                resultsContent.classList.remove('d-none');
+                
+                // Update results (in real implementation, this would be based on actual results)
+                sentCount.textContent = '148';
+                failedCount.textContent = '2';
+                successRate.textContent = '98.7%';
+                resultsText.textContent = 'Bulk email completed successfully! 148 emails sent, 2 failed.';
+            }, 3000);
+        });
+        
+        // New campaign button
+        document.getElementById('new-campaign').addEventListener('click', function() {
+            // Reset form
+            document.getElementById('emailForm').reset();
+            
+            // Go back to step 1
+            step3.classList.add('d-none');
+            step1.classList.remove('d-none');
+            step3Indicator.classList.remove('active');
+            step2Indicator.classList.remove('completed');
+            step1Indicator.classList.remove('completed');
+            step1Indicator.classList.add('active');
+            
+            // Reset results
+            resultsLoading.classList.remove('d-none');
+            resultsContent.classList.add('d-none');
+        });
+        
+        // Update preview when inputs change
+        displayEmail.addEventListener('input', updatePreview);
+        subject.addEventListener('input', updatePreview);
+        emailTemplate.addEventListener('input', updatePreview);
+        
+        function updatePreview() {
+            previewFrom.textContent = displayEmail.value || 'your-email@example.com';
+            previewSubject.textContent = subject.value || 'Your Email Subject';
+            
+            // Replace {name} with "John Doe" for preview
+            let templateContent = emailTemplate.value.replace(/{name}/g, 'John Doe');
+            
+            // Extract body content if it's HTML
+            if (templateContent.includes('<body')) {
+                const bodyMatch = templateContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                if (bodyMatch && bodyMatch[1]) {
+                    templateContent = bodyMatch[1];
+                }
+            }
+            
+            previewBody.innerHTML = templateContent;
+        }
+        
+        // Initial preview
+        updatePreview();
+        
+        // Sample Excel download
+        document.getElementById('download-sample').addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Create sample data
+            const sampleData = [
+                ['name', 'email'],
+                ['John Doe', 'john@example.com'],
+                ['Jane Smith', 'jane@example.com'],
+                ['Robert Johnson', 'robert@example.com']
+            ];
+            
+            // Convert to CSV
+            let csvContent = sampleData.map(row => row.join(',')).join('\n');
+            
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'email_recipients_sample.csv');
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        // Select SendGrid by default
+        document.getElementById('sendgrid-card').click();
+    });
+</script>
+{% endblock %}

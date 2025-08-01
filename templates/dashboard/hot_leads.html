@@ -1,0 +1,418 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Hot Leads{% endblock %}
+{% block page_title %}Hot Leads{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-fire text-danger me-2"></i>Hot Leads
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-warning" onclick="checkDuplicates()">
+                <i class="fas fa-search"></i> Check Duplicates
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Hot Leads</h6>
+                        <h3 class="mb-0">{{ hot_leads_count }}</h3>
+                    </div>
+                    <i class="fas fa-fire fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Duplicates</h6>
+                        <h3 class="mb-0">{{ duplicate_leads_count }}</h3>
+                    </div>
+                    <i class="fas fa-copy fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">This Week</h6>
+                        <h3 class="mb-0">{{ this_week_count }}</h3>
+                    </div>
+                    <i class="fas fa-calendar-week fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Converted</h6>
+                        <h3 class="mb-0">{{ converted_count }}</h3>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label for="show_duplicates" class="form-label">View</label>
+                <select class="form-select" id="show_duplicates" name="show_duplicates">
+                    <option value="">All Hot Leads</option>
+                    <option value="1" {% if show_duplicates %}selected{% endif %}>Duplicates Only</option>
+                    <option value="0" {% if show_duplicates == '0' %}selected{% endif %}>Unique Only</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="project" class="form-label">Last Inquiry Project</label>
+                <select class="form-select" id="project" name="project">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                        <option value="{{ project.id }}" {% if current_project == project.id|stringformat:"s" %}selected{% endif %}>
+                            {{ project.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="date_from" class="form-label">Inquiry From</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_to" class="form-label">Inquiry To</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+            </div>
+            <div class="col-md-2">
+                <label for="search" class="form-label">Search</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       value="{{ search_query }}" placeholder="Name, email, phone">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-outline-primary">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Hot Leads Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Lead Details</th>
+                        <th>Contact</th>
+                        <th>Last Inquiry</th>
+                        <th>Project Interest</th>
+                        <th>Assigned To</th>
+                        <th>Duplicate Status</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in leads %}
+                    <tr class="{% if lead.is_duplicate %}table-warning{% endif %}">
+                        <td>
+                            <div>
+                                <strong>{{ lead.name }}</strong>
+                                {% if lead.is_duplicate %}
+                                    <span class="badge bg-warning ms-2">Duplicate</span>
+                                {% endif %}
+                                <br><small class="text-muted">
+                                    Created: {{ lead.created_at|date:"M d, Y" }}
+                                </small>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <a href="mailto:{{ lead.email }}">{{ lead.email }}</a>
+                                <br><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
+                            </div>
+                        </td>
+                        <td>
+                            {% if lead.last_inquiry_date %}
+                                <div>
+                                    <strong>{{ lead.last_inquiry_date|date:"M d, Y" }}</strong>
+                                    <br><small class="text-muted">
+                                        {{ lead.last_inquiry_date|timesince }} ago
+                                    </small>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">No inquiry date</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if lead.inquiry_project %}
+                                <div>
+                                    <strong>{{ lead.inquiry_project.name }}</strong>
+                                    <br><small class="text-muted">{{ lead.inquiry_project.location }}</small>
+                                </div>
+                            {% elif lead.interested_projects.exists %}
+                                <div>
+                                    {% for project in lead.interested_projects.all|slice:":2" %}
+                                        <span class="badge bg-info me-1">{{ project.name }}</span>
+                                    {% endfor %}
+                                    {% if lead.interested_projects.count > 2 %}
+                                        <br><small class="text-muted">+{{ lead.interested_projects.count|add:"-2" }} more</small>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="text-muted">No project specified</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if lead.assigned_to %}
+                                {{ lead.assigned_to.get_full_name }}
+                            {% else %}
+                                <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if lead.is_duplicate %}
+                                <div>
+                                    <span class="badge bg-warning">Duplicate</span>
+                                    {% if lead.original_lead %}
+                                        <br><small class="text-muted">
+                                            Original: <a href="{% url 'view_lead' lead.original_lead.id %}">{{ lead.original_lead.name }}</a>
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="badge bg-success">Unique</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if lead.call_notes.exists %}
+                                <div>
+                                    {% with lead.call_notes.first as latest_note %}
+                                        <span data-bs-toggle="tooltip" title="{{ latest_note.note }}">
+                                            {{ latest_note.note|truncatechars:30 }}
+                                        </span>
+                                        <br><small class="text-muted">
+                                            {{ latest_note.created_at|date:"M d" }} - {{ latest_note.get_call_type_display }}
+                                        </small>
+                                    {% endwith %}
+                                    {% if lead.call_notes.count > 1 %}
+                                        <br><small class="text-info">+{{ lead.call_notes.count|add:"-1" }} more notes</small>
+                                    {% endif %}
+                                </div>
+                            {% elif lead.notes %}
+                                <span data-bs-toggle="tooltip" title="{{ lead.notes }}">
+                                    {{ lead.notes|truncatechars:30 }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">No notes</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'view_lead' lead.id %}" class="btn btn-outline-info" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-success" onclick="callLead('{{ lead.phone }}')" title="Call">
+                                    <i class="fas fa-phone"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="addNote({{ lead.id }})" title="Add Note">
+                                    <i class="fas fa-sticky-note"></i>
+                                </button>
+                                {% if lead.is_duplicate %}
+                                    <button type="button" class="btn btn-outline-primary" onclick="mergeLead({{ lead.id }})" title="Merge">
+                                        <i class="fas fa-compress-arrows-alt"></i>
+                                    </button>
+                                {% else %}
+                                    <button type="button" class="btn btn-outline-secondary" onclick="markDuplicate({{ lead.id }})" title="Mark as Duplicate">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="fas fa-fire fa-3x mb-3 text-muted"></i>
+                            <br>No hot leads found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Rows per page selector -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <form method="get" class="d-flex align-items-center">
+                    <label for="rows_per_page" class="me-2">Rows per page:</label>
+                    <select id="rows_per_page" name="rows_per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="10" {% if rows_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="25" {% if rows_per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if rows_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if rows_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    
+                    <!-- Preserve other filters -->
+                    {% if show_duplicates %}<input type="hidden" name="show_duplicates" value="{{ show_duplicates }}">{% endif %}
+                    {% if current_project %}<input type="hidden" name="project" value="{{ current_project }}">{% endif %}
+                    {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+                    {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+                    {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
+                </form>
+            </div>
+            <div>
+                <p class="text-muted mb-0">Showing {{ leads.start_index }} to {{ leads.end_index }} of {{ leads.paginator.count }} leads</p>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if leads.has_other_pages %}
+        <nav aria-label="Hot leads pagination">
+            <ul class="pagination justify-content-center">
+                {% if leads.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ leads.previous_page_number }}{% if show_duplicates %}&show_duplicates={{ show_duplicates }}{% endif %}{% if current_project %}&project={{ current_project }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if rows_per_page %}&rows_per_page={{ rows_per_page }}{% endif %}">Previous</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in leads.paginator.page_range %}
+                    {% if leads.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > leads.number|add:'-3' and num < leads.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if show_duplicates %}&show_duplicates={{ show_duplicates }}{% endif %}{% if current_project %}&project={{ current_project }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if rows_per_page %}&rows_per_page={{ rows_per_page }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if leads.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ leads.next_page_number }}{% if show_duplicates %}&show_duplicates={{ show_duplicates }}{% endif %}{% if current_project %}&project={{ current_project }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if rows_per_page %}&rows_per_page={{ rows_per_page }}{% endif %}">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function callLead(phone) {
+    window.open('tel:' + phone);
+}
+
+function addNote(leadId) {
+    // This would open the add note modal (same as in active leads)
+    alert('Add note functionality for lead ID: ' + leadId);
+}
+
+function checkDuplicates() {
+    if (confirm('This will scan all hot leads for potential duplicates based on email and phone. Continue?')) {
+        fetch('{% url "check_duplicate_leads" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Found ${data.duplicates_found} potential duplicates. Page will reload.`);
+                location.reload();
+            } else {
+                alert('Error checking duplicates: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while checking duplicates.');
+        });
+    }
+}
+
+function markDuplicate(leadId) {
+    const originalLeadId = prompt('Enter the ID of the original lead:');
+    if (originalLeadId) {
+        fetch('{% url "mark_duplicate_lead" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                lead_id: leadId,
+                original_lead_id: originalLeadId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while marking as duplicate.');
+        });
+    }
+}
+
+function mergeLead(leadId) {
+    if (confirm('This will merge this duplicate lead with the original. Continue?')) {
+        fetch('{% url "merge_duplicate_lead" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                lead_id: leadId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Lead merged successfully.');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while merging lead.');
+        });
+    }
+}
+</script>
+{% endblock %}

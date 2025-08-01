@@ -1,0 +1,642 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Punch Attendance{% endblock %}
+{% block page_title %}Punch Attendance{% endblock %}
+
+{% block content %}
+<style>
+    .clock-container {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .current-time {
+        font-size: 3rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .current-date {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+    
+    .punch-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .punch-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .punch-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        font-weight: 600;
+    }
+    
+    .punch-btn {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        margin: 0 auto;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+    
+    .punch-in-btn {
+        background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+        color: white;
+    }
+    
+    .punch-out-btn {
+        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+        color: white;
+    }
+    
+    .punch-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+    
+    .punch-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .punch-btn i {
+        font-size: 2rem;
+        margin-bottom: 5px;
+    }
+    
+    .punch-time {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 15px 0;
+        color: #333;
+    }
+    
+    .punch-label {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .status-badge {
+        padding: 8px 15px;
+        border-radius: 50px;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 10px;
+    }
+    
+    .status-present {
+        background-color: rgba(25, 135, 84, 0.1);
+        color: #198754;
+    }
+    
+    .status-absent {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+    
+    .status-late {
+        background-color: rgba(255, 193, 7, 0.1);
+        color: #ffc107;
+    }
+    
+    .status-half-day {
+        background-color: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+    }
+    
+    .attendance-history {
+        margin-top: 40px;
+    }
+    
+    .history-card {
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .history-card:hover {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .history-card .card-header {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-bottom: none;
+        font-weight: 600;
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        z-index: 9999;
+    }
+    
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+    
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+    }
+    
+    .working-hours {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-top: 15px;
+        color: #333;
+    }
+</style>
+
+<!-- Clock Section -->
+<div class="clock-container mb-4">
+    <h1 class="current-time" id="currentTime">--:--:--</h1>
+    <p class="current-date" id="currentDate">Loading date...</p>
+</div>
+
+<!-- Punch Cards -->
+<div class="row">
+    <!-- Punch In Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card punch-card">
+            <div class="card-header">
+                <i class="fas fa-sign-in-alt me-2"></i> Punch In
+            </div>
+            <div class="card-body text-center">
+                <button id="punchInBtn" class="punch-btn punch-in-btn" onclick="punchInOut('in')" {% if today_attendance and today_attendance.check_in_time %}disabled{% endif %}>
+                    <i class="fas fa-fingerprint"></i>
+                    <span>Punch In</span>
+                </button>
+                <div class="punch-time mt-4" id="punchInTime">
+                    {% if today_attendance and today_attendance.check_in_time %}
+                        {{ today_attendance.check_in_time|time:"H:i" }}
+                    {% else %}
+                        --:--
+                    {% endif %}
+                </div>
+                <div class="punch-label">Check-in Time</div>
+                
+                {% if today_attendance and today_attendance.check_in_time %}
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-map-marker-alt me-1"></i> 
+                            {% if today_attendance.check_in_address %}
+                                {{ today_attendance.check_in_address }}
+                            {% else %}
+                                Location recorded
+                            {% endif %}
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Punch Out Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card punch-card">
+            <div class="card-header">
+                <i class="fas fa-sign-out-alt me-2"></i> Punch Out
+            </div>
+            <div class="card-body text-center">
+                <button id="punchOutBtn" class="punch-btn punch-out-btn" onclick="punchInOut('out')" {% if not today_attendance or not today_attendance.check_in_time or today_attendance.check_out_time %}disabled{% endif %}>
+                    <i class="fas fa-fingerprint"></i>
+                    <span>Punch Out</span>
+                </button>
+                <div class="punch-time mt-4" id="punchOutTime">
+                    {% if today_attendance and today_attendance.check_out_time %}
+                        {{ today_attendance.check_out_time|time:"H:i" }}
+                    {% else %}
+                        --:--
+                    {% endif %}
+                </div>
+                <div class="punch-label">Check-out Time</div>
+                
+                {% if today_attendance and today_attendance.check_out_time %}
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-map-marker-alt me-1"></i> 
+                            {% if today_attendance.check_out_address %}
+                                {{ today_attendance.check_out_address }}
+                            {% else %}
+                                Location recorded
+                            {% endif %}
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status and Working Hours -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i> Today's Status
+            </div>
+            <div class="card-body text-center">
+                {% if today_attendance %}
+                    <div class="status-badge 
+                        {% if today_attendance.status == 'present' %}status-present
+                        {% elif today_attendance.status == 'absent' %}status-absent
+                        {% elif today_attendance.status == 'late' %}status-late
+                        {% elif today_attendance.status == 'half_day' %}status-half-day{% endif %}">
+                        {{ today_attendance.get_status_display }}
+                    </div>
+                {% else %}
+                    <div class="status-badge status-absent">Not Punched In</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-clock me-2"></i> Working Hours
+            </div>
+            <div class="card-body text-center">
+                <div class="working-hours" id="workingHours">
+                    {% if today_attendance and today_attendance.working_hours %}
+                        {{ today_attendance.working_hours|floatformat:2 }} hours
+                    {% elif today_attendance and today_attendance.check_in_time and not today_attendance.check_out_time %}
+                        <span id="liveWorkingHours">Calculating...</span>
+                    {% else %}
+                        0.00 hours
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance History -->
+<div class="attendance-history">
+    <h4 class="mb-4"><i class="fas fa-history me-2"></i> Recent Attendance History</h4>
+    
+    {% if recent_attendance %}
+        {% for record in recent_attendance %}
+            <div class="card history-card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>{{ record.date|date:"l, F j, Y" }}</span>
+                    <span class="badge 
+                        {% if record.status == 'present' %}bg-success
+                        {% elif record.status == 'absent' %}bg-danger
+                        {% elif record.status == 'late' %}bg-warning
+                        {% elif record.status == 'half_day' %}bg-primary{% endif %}">
+                        {{ record.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-2">
+                                <strong><i class="fas fa-sign-in-alt me-2"></i> Check-in:</strong> 
+                                {% if record.check_in_time %}
+                                    {{ record.check_in_time|time:"H:i" }}
+                                {% else %}
+                                    --:--
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-2">
+                                <strong><i class="fas fa-sign-out-alt me-2"></i> Check-out:</strong> 
+                                {% if record.check_out_time %}
+                                    {{ record.check_out_time|time:"H:i" }}
+                                {% else %}
+                                    --:--
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-2">
+                                <strong><i class="fas fa-clock me-2"></i> Hours:</strong> 
+                                {% if record.working_hours %}
+                                    {{ record.working_hours|floatformat:2 }}
+                                {% else %}
+                                    0.00
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if record.notes %}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-sticky-note me-1"></i> {{ record.notes }}
+                            </small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> No recent attendance records found.
+        </div>
+    {% endif %}
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="spinner-border text-primary mb-3" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <h5 id="loadingMessage">Processing...</h5>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container"></div>
+
+<!-- Location Permission Modal -->
+<div class="modal fade" id="locationModal" tabindex="-1" aria-labelledby="locationModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="locationModalLabel">Location Permission Required</h5>
+            </div>
+            <div class="modal-body">
+                <p>We need your location to record your attendance. Please allow location access when prompted.</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> Your location is only used to verify your attendance and is stored securely.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="requestLocationPermission()">Allow Location Access</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let checkInTime = {% if today_attendance and today_attendance.check_in_time %}"{{ today_attendance.check_in_time|time:'H:i:s' }}"{% else %}null{% endif %};
+    let checkOutTime = {% if today_attendance and today_attendance.check_out_time %}"{{ today_attendance.check_out_time|time:'H:i:s' }}"{% else %}null{% endif %};
+    let punchStatus = {% if today_attendance %}"{{ today_attendance.status }}"{% else %}null{% endif %};
+    let workingHoursValue = {% if today_attendance and today_attendance.working_hours %}{{ today_attendance.working_hours|floatformat:2 }}{% else %}0{% endif %};
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Start clock
+        updateClock();
+        setInterval(updateClock, 1000);
+        
+        // Update working hours if checked in but not checked out
+        if (checkInTime && !checkOutTime) {
+            updateLiveWorkingHours();
+            setInterval(updateLiveWorkingHours, 60000); // Update every minute
+        }
+    });
+    
+    // Update clock
+    function updateClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        const dateString = now.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        
+        document.getElementById('currentTime').textContent = timeString;
+        document.getElementById('currentDate').textContent = dateString;
+    }
+    
+    // Update live working hours
+    function updateLiveWorkingHours() {
+        if (!checkInTime) return;
+        
+        const now = new Date();
+        const checkIn = new Date();
+        const [hours, minutes, seconds] = checkInTime.split(':');
+        
+        checkIn.setHours(parseInt(hours, 10));
+        checkIn.setMinutes(parseInt(minutes, 10));
+        checkIn.setSeconds(parseInt(seconds, 10));
+        
+        const diffMs = now - checkIn;
+        const diffHrs = diffMs / (1000 * 60 * 60);
+        
+        document.getElementById('liveWorkingHours').textContent = diffHrs.toFixed(2) + ' hours';
+    }
+    
+    // Punch in/out function
+    function punchInOut(type) {
+        // Show loading overlay
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        document.getElementById('loadingMessage').textContent = `Processing ${type === 'in' ? 'punch in' : 'punch out'}...`;
+        
+        // Check if geolocation is available
+        if (!navigator.geolocation) {
+            showToast('error', 'Geolocation is not supported by your browser');
+            document.getElementById('loadingOverlay').style.display = 'none';
+            return;
+        }
+        
+        // Get current position
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                // Success callback
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+                
+                // Get address from coordinates
+                getAddressFromCoordinates(latitude, longitude, function(address) {
+                    // Send punch request to server
+                    sendPunchRequest(type, latitude, longitude, address);
+                });
+            },
+            function(error) {
+                // Error callback
+                document.getElementById('loadingOverlay').style.display = 'none';
+                
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        showToast('error', 'Location permission denied. Please enable location services.');
+                        $('#locationModal').modal('show');
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        showToast('error', 'Location information is unavailable.');
+                        break;
+                    case error.TIMEOUT:
+                        showToast('error', 'The request to get location timed out.');
+                        break;
+                    case error.UNKNOWN_ERROR:
+                        showToast('error', 'An unknown error occurred.');
+                        break;
+                }
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+    
+    // Get address from coordinates using reverse geocoding
+    function getAddressFromCoordinates(latitude, longitude, callback) {
+        document.getElementById('loadingMessage').textContent = 'Getting your location...';
+        
+        // Use Nominatim for reverse geocoding
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
+            .then(response => response.json())
+            .then(data => {
+                let address = data.display_name || 'Unknown location';
+                callback(address);
+            })
+            .catch(error => {
+                console.error('Error getting address:', error);
+                callback('Location recorded');
+            });
+    }
+    
+    // Send punch request to server
+    function sendPunchRequest(type, latitude, longitude, address) {
+        document.getElementById('loadingMessage').textContent = `Submitting ${type === 'in' ? 'punch in' : 'punch out'}...`;
+        
+        // Prepare data
+        const data = {
+            punch_type: type,
+            latitude: latitude,
+            longitude: longitude,
+            address: address
+        };
+        
+        // Send AJAX request
+        fetch('{% url "punch_in_out" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loadingOverlay').style.display = 'none';
+            
+            if (data.success) {
+                // Show success message
+                showToast('success', data.message);
+                
+                // Update UI
+                if (type === 'in') {
+                    document.getElementById('punchInTime').textContent = data.check_in_time;
+                    document.getElementById('punchInBtn').disabled = true;
+                    document.getElementById('punchOutBtn').disabled = false;
+                    checkInTime = data.check_in_time;
+                } else {
+                    document.getElementById('punchOutTime').textContent = data.check_out_time;
+                    document.getElementById('punchOutBtn').disabled = true;
+                    checkOutTime = data.check_out_time;
+                    document.getElementById('workingHours').textContent = data.working_hours + ' hours';
+                }
+                
+                // Reload page after a short delay to refresh all data
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showToast('error', data.error || 'An error occurred');
+            }
+        })
+        .catch(error => {
+            document.getElementById('loadingOverlay').style.display = 'none';
+            showToast('error', 'Network error. Please try again.');
+            console.error('Error:', error);
+        });
+    }
+    
+    // Show toast notification
+    function showToast(type, message) {
+        const toastContainer = document.querySelector('.toast-container');
+        
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        const bsToast = new bootstrap.Toast(toast, {
+            autohide: true,
+            delay: 5000
+        });
+        
+        bsToast.show();
+        
+        // Remove toast after it's hidden
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+    
+    // Request location permission
+    function requestLocationPermission() {
+        $('#locationModal').modal('hide');
+        
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                showToast('success', 'Location access granted');
+            },
+            function(error) {
+                showToast('error', 'Location permission denied. Please enable location services in your browser settings.');
+            },
+            { enableHighAccuracy: true }
+        );
+    }
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,255 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Leads Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Leads Management</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'add_lead' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Lead
+            </a>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#bulkUploadModal">
+                <i class="fas fa-upload"></i> Bulk Upload
+            </button>
+            <button type="button" class="btn btn-info" onclick="downloadSampleFile()">
+                <i class="fas fa-download"></i> Sample File
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="">All Statuses</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="source" class="form-label">Source</label>
+                <select class="form-select" id="source" name="source">
+                    <option value="">All Sources</option>
+                    {% for value, label in source_choices %}
+                        <option value="{{ value }}" {% if current_source == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="search" class="form-label">Search</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       value="{{ search_query }}" placeholder="Search by name, email, or phone">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-outline-primary">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Leads Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Source</th>
+                        <th>Assigned To</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in leads %}
+                    <tr>
+                        <td>
+                            <strong>{{ lead.name }}</strong>
+                            {% if lead.interested_projects.exists %}
+                                <br><small class="text-muted">{{ lead.interested_projects.count }} project(s)</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="mailto:{{ lead.email }}">{{ lead.email }}</a>
+                        </td>
+                        <td>
+                            <a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if lead.status == 'hot' %}danger{% elif lead.status == 'warm' %}warning{% elif lead.status == 'cold' %}info{% elif lead.status == 'converted' %}success{% else %}secondary{% endif %}">
+                                {{ lead.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ lead.get_source_display }}</span>
+                        </td>
+                        <td>
+                            {% if lead.assigned_to %}
+                                {{ lead.assigned_to.get_full_name|default:lead.assigned_to.username }}
+                            {% else %}
+                                <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ lead.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'view_lead' lead.id %}" class="btn btn-outline-info" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'edit_lead' lead.id %}" class="btn btn-outline-primary" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-success" onclick="callLead('{{ lead.phone }}')" title="Call">
+                                    <i class="fas fa-phone"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="fas fa-users fa-3x mb-3"></i>
+                            <br>No leads found matching your criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if leads.has_other_pages %}
+        <nav aria-label="Leads pagination">
+            <ul class="pagination justify-content-center">
+                {% if leads.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ leads.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_source %}&source={{ current_source }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in leads.paginator.page_range %}
+                    {% if leads.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > leads.number|add:'-3' and num < leads.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_source %}&source={{ current_source }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if leads.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ leads.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_source %}&source={{ current_source }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bulk Upload Modal -->
+<div class="modal fade" id="bulkUploadModal" tabindex="-1" aria-labelledby="bulkUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkUploadModalLabel">Bulk Upload Leads</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" enctype="multipart/form-data" action="{% url 'bulk_upload_leads' %}">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Instructions:</h6>
+                        <ul class="mb-0">
+                            <li>Upload Excel (.xlsx) or CSV (.csv) file</li>
+                            <li>Required columns: <strong>name, email, phone</strong></li>
+                            <li>Optional columns: <strong>source, status, budget_min, budget_max, notes</strong></li>
+                            <li>Download sample file for reference</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="bulk_file" class="form-label">Choose File <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" id="bulk_file" name="bulk_file" 
+                               accept=".xlsx,.xls,.csv" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="default_source" class="form-label">Default Source (for rows without source)</label>
+                        <select class="form-select" id="default_source" name="default_source">
+                            {% for value, label in source_choices %}
+                                <option value="{{ value }}" {% if value == 'website' %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="default_status" class="form-label">Default Status (for rows without status)</label>
+                        <select class="form-select" id="default_status" name="default_status">
+                            {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if value == 'warm' %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="skip_duplicates" name="skip_duplicates" checked>
+                        <label class="form-check-label" for="skip_duplicates">
+                            Skip duplicate emails/phones (recommended)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Upload Leads
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function callLead(phone) {
+    window.open('tel:' + phone);
+}
+
+function downloadSampleFile() {
+    // Create sample CSV content
+    const csvContent = `name,email,phone,source,status,budget_min,budget_max,notes
+John Doe,john@example.com,+91 9876543210,website,warm,5000000,8000000,Interested in 3BHK apartments
+Jane Smith,jane@example.com,+91 8765432109,referral,hot,3000000,5000000,Looking for 2BHK near IT park
+Mike Johnson,mike@example.com,+91 7654321098,social_media,cold,2000000,3000000,First time buyer`;
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leads_sample.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Closed Leads{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">🔒 Closed Leads</h4>
+                    <div class="d-flex gap-2">
+                        <span class="badge bg-success">{{ leads.object_list|length }} Total</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <form method="GET" class="d-flex gap-2">
+                                <select name="status" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Status</option>
+                                    {% for value, label in status_choices %}
+                                        <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="text" name="search" class="form-control" placeholder="Search leads..." value="{{ search_query }}" onchange="this.form.submit()">
+                                <button type="submit" class="btn btn-primary">Filter</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Leads Table -->
+                    {% if leads %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Contact</th>
+                                    <th>Status</th>
+                                    <th>Source</th>
+                                    <th>Projects</th>
+                                    <th>Notes</th>
+                                    <th>Assigned To</th>
+                                    <th>Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lead in leads %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ lead.name }}</strong>
+                                        {% if lead.budget_min or lead.budget_max %}
+                                            <small class="text-muted d-block">
+                                                Budget: ₹{{ lead.budget_min|default:"0"|floatformat:0 }}
+                                                {% if lead.budget_max %} - ₹{{ lead.budget_max|floatformat:0 }}{% endif %}
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div>📧 {{ lead.email }}</div>
+                                        <div>📞 {{ lead.phone }}</div>
+                                    </td>
+                                    <td>
+                                        {% if lead.status == 'converted' %}
+                                            <span class="badge bg-success">✅ Converted</span>
+                                        {% elif lead.status == 'lost' %}
+                                            <span class="badge bg-danger">❌ Lost</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ lead.get_source_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% for project in lead.interested_projects.all %}
+                                            <small class="badge bg-light text-dark me-1">{{ project.name }}</small>
+                                        {% empty %}
+                                            <span class="text-muted">None</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        {% if lead.notes.count > 0 %}
+                                            <span class="badge bg-info">{{ lead.notes.count }} note{{ lead.notes.count|pluralize }}</span>
+                                            <button class="btn btn-sm btn-outline-info ms-1" onclick="viewNotes({{ lead.id }}, '{{ lead.name }}')">View</button>
+                                        {% else %}
+                                            <span class="text-muted">No notes</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if lead.assigned_to %}
+                                            {{ lead.assigned_to.get_full_name }}
+                                        {% else %}
+                                            <span class="text-muted">Unassigned</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ lead.updated_at|date:"M d, Y" }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'view_lead' lead.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                            {% if lead.status == 'lost' %}
+                                                <button class="btn btn-sm btn-outline-warning" onclick="reactivateLead({{ lead.id }})">Reactivate</button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Rows per page selector -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <form method="get" class="d-flex align-items-center">
+                                <label for="rows_per_page" class="me-2">Rows per page:</label>
+                                <select id="rows_per_page" name="rows_per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+                                    <option value="10" {% if rows_per_page == 10 %}selected{% endif %}>10</option>
+                                    <option value="25" {% if rows_per_page == 25 %}selected{% endif %}>25</option>
+                                    <option value="50" {% if rows_per_page == 50 %}selected{% endif %}>50</option>
+                                    <option value="100" {% if rows_per_page == 100 %}selected{% endif %}>100</option>
+                                </select>
+                                
+                                <!-- Preserve other filters -->
+                                {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
+                                {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
+                            </form>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0">Showing {{ leads.start_index }} to {{ leads.end_index }} of {{ leads.paginator.count }} leads</p>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if leads.has_other_pages %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if leads.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ leads.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if rows_per_page %}&rows_per_page={{ rows_per_page }}{% endif %}">Previous</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in leads.paginator.page_range %}
+                                {% if leads.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > leads.number|add:'-3' and num < leads.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if rows_per_page %}&rows_per_page={{ rows_per_page }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if leads.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ leads.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if rows_per_page %}&rows_per_page={{ rows_per_page }}{% endif %}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-archive fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No closed leads found</h5>
+                        <p class="text-muted">No leads match your current filters.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Notes Modal -->
+<div class="modal fade" id="viewNotesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Lead Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="notesContent">
+                <!-- Notes will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function viewNotes(leadId, leadName) {
+    document.querySelector('#viewNotesModal .modal-title').textContent = `Notes for ${leadName}`;
+    
+    // Load notes via AJAX
+    fetch(`/leads/${leadId}/`)
+    .then(response => response.text())
+    .then(html => {
+        // Extract notes section from the response
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const notesSection = doc.querySelector('#lead-notes');
+        
+        if (notesSection) {
+            document.getElementById('notesContent').innerHTML = notesSection.innerHTML;
+        } else {
+            document.getElementById('notesContent').innerHTML = '<p class="text-muted">No notes available</p>';
+        }
+        
+        new bootstrap.Modal(document.getElementById('viewNotesModal')).show();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('notesContent').innerHTML = '<p class="text-danger">Error loading notes</p>';
+        new bootstrap.Modal(document.getElementById('viewNotesModal')).show();
+    });
+}
+
+function reactivateLead(leadId) {
+    if (confirm('Are you sure you want to reactivate this lead?')) {
+        fetch('{% url "update_lead_status" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: `lead_id=${leadId}&status=warm`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while reactivating the lead');
+        });
+    }
+}
+</script>
+{% endblock %}

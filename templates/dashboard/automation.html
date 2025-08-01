@@ -1,0 +1,128 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Automation Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Automation Hub</h1>
+    </div>
+
+    <div class="row">
+        <!-- Bulk Email -->
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-envelope fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Bulk Email</h5>
+                    <p class="card-text">Send personalized emails to multiple leads at once using Excel data.</p>
+                    <a href="{% url 'bulk_email' %}" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Send Emails
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk WhatsApp -->
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fab fa-whatsapp fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title">Bulk WhatsApp</h5>
+                    <p class="card-text">Send personalized WhatsApp messages to multiple leads using Excel data.</p>
+                    <a href="{% url 'bulk_whatsapp' %}" class="btn btn-success">
+                        <i class="fas fa-comment me-2"></i>Send WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk SMS -->
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-sms fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Bulk SMS</h5>
+                    <p class="card-text">Send personalized SMS messages to multiple leads using Excel data.</p>
+                    <a href="{% url 'bulk_sms' %}" class="btn btn-warning">
+                        <i class="fas fa-mobile-alt me-2"></i>Send SMS
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: IVR Webhooks -->
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-phone-volume fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title">IVR Webhooks</h5>
+                    <p class="card-text">Configure IVR call webhooks to automatically capture and process call data.</p>
+                    <a href="{% url 'ivr_webhooks' %}" class="btn btn-info">
+                        <i class="fas fa-webhook me-2"></i>Manage IVR
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Tips Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Automation Tips & Best Practices</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-4">
+                                <h6><i class="fas fa-file-excel text-success me-2"></i>Prepare Your Data</h6>
+                                <p class="small text-muted">
+                                    Create an Excel file with proper column headers like "name", "email", "phone", etc. 
+                                    Make sure your data is clean and formatted correctly.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-4">
+                                <h6><i class="fas fa-pen-fancy text-primary me-2"></i>Personalize Your Messages</h6>
+                                <p class="small text-muted">
+                                    Use placeholders like {name} in your templates to personalize messages. 
+                                    Personalized messages have higher engagement rates.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-4">
+                                <h6><i class="fas fa-clock text-warning me-2"></i>Timing Matters</h6>
+                                <p class="small text-muted">
+                                    Send your messages at optimal times when recipients are likely to be available. 
+                                    Avoid late night or early morning sends.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-4">
+                                <h6><i class="fas fa-phone-volume text-info me-2"></i>IVR Integration</h6>
+                                <p class="small text-muted">
+                                    Set up IVR webhooks to automatically capture call data and associate with leads. 
+                                    This helps in tracking customer interactions effectively.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,335 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Add Project - Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .image-preview {
+        max-width: 200px;
+        max-height: 200px;
+        object-fit: cover;
+        border-radius: 8px;
+        margin-top: 10px;
+    }
+    .file-input-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+    }
+    .file-input-wrapper input[type=file] {
+        position: absolute;
+        left: -9999px;
+    }
+    .file-input-label {
+        cursor: pointer;
+        display: inline-block;
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    .file-input-label:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Add New Project</h1>
+            <p class="text-muted">Create a new real estate project</p>
+        </div>
+        <a href="{% url 'projects' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Projects
+        </a>
+    </div>
+
+    <!-- Form -->
+    <div class="row">
+        <div class="col-lg-8">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- Basic Information -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Basic Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Project Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="location" class="form-label">Location *</label>
+                                <input type="text" class="form-control" id="location" name="location" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description *</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="bhk_options" class="form-label">BHK Options *</label>
+                                <input type="text" class="form-control" id="bhk_options" name="bhk_options" 
+                                       placeholder="e.g., 1BHK, 2BHK, 3BHK" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="status" class="form-label">Status *</label>
+                                <select class="form-select" id="status" name="status" required>
+                                    {% for value, label in status_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pricing & Units -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Pricing & Units</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="price_min" class="form-label">Minimum Price (₹) *</label>
+                                <input type="number" class="form-control" id="price_min" name="price_min" 
+                                       step="0.01" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="price_max" class="form-label">Maximum Price (₹) *</label>
+                                <input type="number" class="form-control" id="price_max" name="price_max" 
+                                       step="0.01" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="area_min" class="form-label">Minimum Area (sq ft)</label>
+                                <input type="number" class="form-control" id="area_min" name="area_min" step="0.01">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="area_max" class="form-label">Maximum Area (sq ft)</label>
+                                <input type="number" class="form-control" id="area_max" name="area_max" step="0.01">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="total_units" class="form-label">Total Units</label>
+                                <input type="number" class="form-control" id="total_units" name="total_units">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="available_units" class="form-label">Available Units</label>
+                                <input type="number" class="form-control" id="available_units" name="available_units">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="possession_date" class="form-label">Possession Date</label>
+                            <input type="date" class="form-control" id="possession_date" name="possession_date">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Images -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Images</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="main_image" class="form-label">Main Image</label>
+                                <div class="file-input-wrapper">
+                                    <input type="file" id="main_image" name="main_image" accept="image/*" 
+                                           onchange="previewImage(this, 'main_preview')">
+                                    <label for="main_image" class="file-input-label w-100">
+                                        <i class="fas fa-cloud-upload-alt me-2"></i>Choose Main Image
+                                    </label>
+                                </div>
+                                <img id="main_preview" class="image-preview" style="display: none;">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="floor_plan" class="form-label">Floor Plan</label>
+                                <div class="file-input-wrapper">
+                                    <input type="file" id="floor_plan" name="floor_plan" accept="image/*" 
+                                           onchange="previewImage(this, 'floor_preview')">
+                                    <label for="floor_plan" class="file-input-label w-100">
+                                        <i class="fas fa-cloud-upload-alt me-2"></i>Choose Floor Plan
+                                    </label>
+                                </div>
+                                <img id="floor_preview" class="image-preview" style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="additional_images" class="form-label">Additional Images</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" id="additional_images" name="additional_images" 
+                                       accept="image/*" multiple onchange="previewMultipleImages(this)">
+                                <label for="additional_images" class="file-input-label w-100">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i>Choose Additional Images (Multiple)
+                                </label>
+                            </div>
+                            <div id="additional_previews" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features & Amenities -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Features & Amenities</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="amenities" class="form-label">Amenities</label>
+                            <textarea class="form-control" id="amenities" name="amenities" rows="3" 
+                                      placeholder="List amenities separated by commas (e.g., Swimming Pool, Gym, Parking)"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="features" class="form-label">Key Features</label>
+                            <textarea class="form-control" id="features" name="features" rows="3" 
+                                      placeholder="List key features separated by commas (e.g., Gated Community, 24/7 Security)"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Developer Information -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Developer Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="developer_name" class="form-label">Developer Name</label>
+                                <input type="text" class="form-control" id="developer_name" name="developer_name">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="contact_person" class="form-label">Contact Person</label>
+                                <input type="text" class="form-control" id="contact_person" name="contact_person">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="contact_phone" class="form-label">Contact Phone</label>
+                                <input type="tel" class="form-control" id="contact_phone" name="contact_phone">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="contact_email" class="form-label">Contact Email</label>
+                                <input type="email" class="form-control" id="contact_email" name="contact_email">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'projects' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Create Project
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Tips</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                            Use high-quality images for better presentation
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                            Include detailed amenities to attract more leads
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                            Set realistic pricing based on market research
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                            Keep project descriptions clear and compelling
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewImage(input, previewId) {
+    const preview = document.getElementById(previewId);
+    const file = input.files[0];
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+function previewMultipleImages(input) {
+    const container = document.getElementById('additional_previews');
+    container.innerHTML = '';
+    
+    if (input.files) {
+        Array.from(input.files).forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.className = 'image-preview me-2 mb-2';
+                container.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+}
+
+// Auto-calculate available units when total units change
+document.getElementById('total_units').addEventListener('input', function() {
+    const totalUnits = parseInt(this.value) || 0;
+    const availableUnitsField = document.getElementById('available_units');
+    
+    if (totalUnits > 0 && !availableUnitsField.value) {
+        availableUnitsField.value = totalUnits;
+    }
+});
+</script>
+{% endblock %}

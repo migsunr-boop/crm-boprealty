@@ -1,0 +1,434 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Calendar - BOP Realty{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+<style>
+    .calendar-wrapper {
+        height: calc(100vh - 250px);
+    }
+    
+    .fc-event {
+        cursor: pointer;
+    }
+    
+    .fc .fc-button-primary {
+        background-color: #8b5cf6;
+        border-color: #8b5cf6;
+    }
+    
+    .fc .fc-button-primary:hover {
+        background-color: #7c3aed;
+        border-color: #7c3aed;
+    }
+    
+    .fc .fc-button-primary:not(:disabled).fc-button-active, 
+    .fc .fc-button-primary:not(:disabled):active {
+        background-color: #6d28d9;
+        border-color: #6d28d9;
+    }
+    
+    .fc-daygrid-day.fc-day-today {
+        background-color: rgba(139, 92, 246, 0.1);
+    }
+    
+    .event-type-meeting { background-color: #3b82f6; }
+    .event-type-site_visit { background-color: #10b981; }
+    .event-type-client_call { background-color: #f59e0b; }
+    .event-type-team_meeting { background-color: #8b5cf6; }
+    .event-type-deadline { background-color: #ef4444; }
+    .event-type-other { background-color: #6b7280; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-calendar text-primary me-2"></i>Calendar
+        </h2>
+        <p class="text-muted mb-0">Manage appointments, meetings and important dates</p>
+    </div>
+    
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEventModal">
+        <i class="fas fa-plus me-2"></i>Add Event
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body p-4">
+        <!-- Filter Controls -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <label class="form-label">Filter by Type</label>
+                <select id="eventTypeFilter" class="form-select">
+                    <option value="all">All Types</option>
+                    <option value="meeting">Meetings</option>
+                    <option value="site_visit">Site Visits</option>
+                    <option value="client_call">Client Calls</option>
+                    <option value="team_meeting">Team Meetings</option>
+                    <option value="deadline">Deadlines</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Filter by Project</label>
+                <select id="projectFilter" class="form-select">
+                    <option value="all">All Projects</option>
+                    {% for project in projects %}
+                        <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Filter by Lead</label>
+                <select id="leadFilter" class="form-select">
+                    <option value="all">All Leads</option>
+                    {% for lead in active_leads %}
+                        <option value="{{ lead.id }}">{{ lead.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
+                    <i class="fas fa-sync-alt me-2"></i>Reset Filters
+                </button>
+            </div>
+        </div>
+        
+        <!-- Calendar -->
+        <div class="calendar-wrapper" id="calendar"></div>
+    </div>
+</div>
+
+<!-- Add Event Modal -->
+<div class="modal fade" id="addEventModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Event</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'add_event' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Event Title *</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Event Type *</label>
+                            <select name="event_type" class="form-select" required>
+                                <option value="meeting">Meeting</option>
+                                <option value="site_visit">Site Visit</option>
+                                <option value="client_call">Client Call</option>
+                                <option value="team_meeting">Team Meeting</option>
+                                <option value="deadline">Deadline</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-check pt-4">
+                                <input class="form-check-input" type="checkbox" name="all_day" id="allDayCheck">
+                                <label class="form-check-label" for="allDayCheck">
+                                    All Day Event
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Start Date & Time *</label>
+                            <input type="datetime-local" name="start_time" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">End Date & Time *</label>
+                            <input type="datetime-local" name="end_time" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Location</label>
+                            <input type="text" name="location" class="form-control">
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Related Project</label>
+                            <select name="project" class="form-select">
+                                <option value="">None</option>
+                                {% for project in projects %}
+                                    <option value="{{ project.id }}">{{ project.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Related Lead</label>
+                            <select name="lead" class="form-select">
+                                <option value="">None</option>
+                                {% for lead in active_leads %}
+                                    <option value="{{ lead.id }}">{{ lead.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Color</label>
+                            <input type="color" name="color" class="form-control form-control-color" value="#4f46e5">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Attendees</label>
+                            <select name="attendees" class="form-select" multiple>
+                                {% for member in team_members %}
+                                    <option value="{{ member.user.id }}">{{ member.user.get_full_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple attendees</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Event</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div class="modal fade" id="eventDetailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventDetailTitle">Event Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="eventDetailBody">
+                <!-- Content will be loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="editEventBtn">Edit</button>
+                <button type="button" class="btn btn-danger" id="deleteEventBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+<script>
+    // Initialize FullCalendar
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+        
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            themeSystem: 'bootstrap5',
+            selectable: true,
+            selectMirror: true,
+            dayMaxEvents: true,
+            eventTimeFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                meridiem: false
+            },
+            events: "{% url 'calendar_events_json' %}",
+            select: function(info) {
+                // Pre-fill the modal with selected date/time
+                const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
+                document.querySelector('input[name="start_time"]').value = info.startStr.slice(0, 16);
+                document.querySelector('input[name="end_time"]').value = info.endStr.slice(0, 16);
+                modal.show();
+            },
+            eventClick: function(info) {
+                // Show event details
+                showEventDetails(info.event);
+            },
+            eventClassNames: function(info) {
+                return [`event-type-${info.event.extendedProps.event_type}`];
+            }
+        });
+        
+        calendar.render();
+        
+        // Event filtering
+        document.getElementById('eventTypeFilter').addEventListener('change', function() {
+            const type = this.value;
+            if (type === 'all') {
+                calendar.getEvents().forEach(event => event.setProp('display', 'auto'));
+            } else {
+                calendar.getEvents().forEach(event => {
+                    if (event.extendedProps.event_type === type) {
+                        event.setProp('display', 'auto');
+                    } else {
+                        event.setProp('display', 'none');
+                    }
+                });
+            }
+        });
+        
+        document.getElementById('projectFilter').addEventListener('change', function() {
+            const projectId = this.value;
+            if (projectId === 'all') {
+                calendar.getEvents().forEach(event => event.setProp('display', 'auto'));
+            } else {
+                calendar.getEvents().forEach(event => {
+                    if (event.extendedProps.project_id === parseInt(projectId)) {
+                        event.setProp('display', 'auto');
+                    } else {
+                        event.setProp('display', 'none');
+                    }
+                });
+            }
+        });
+        
+        document.getElementById('leadFilter').addEventListener('change', function() {
+            const leadId = this.value;
+            if (leadId === 'all') {
+                calendar.getEvents().forEach(event => event.setProp('display', 'auto'));
+            } else {
+                calendar.getEvents().forEach(event => {
+                    if (event.extendedProps.lead_id === parseInt(leadId)) {
+                        event.setProp('display', 'auto');
+                    } else {
+                        event.setProp('display', 'none');
+                    }
+                });
+            }
+        });
+        
+        // Reset filters
+        window.resetFilters = function() {
+            document.getElementById('eventTypeFilter').value = 'all';
+            document.getElementById('projectFilter').value = 'all';
+            document.getElementById('leadFilter').value = 'all';
+            calendar.getEvents().forEach(event => event.setProp('display', 'auto'));
+        };
+        
+        // Toggle all-day event inputs
+        document.getElementById('allDayCheck').addEventListener('change', function() {
+            const startInput = document.querySelector('input[name="start_time"]');
+            const endInput = document.querySelector('input[name="end_time"]');
+            
+            if (this.checked) {
+                startInput.type = 'date';
+                endInput.type = 'date';
+            } else {
+                startInput.type = 'datetime-local';
+                endInput.type = 'datetime-local';
+            }
+        });
+        
+        // Event details modal
+        window.showEventDetails = function(event) {
+            const modal = new bootstrap.Modal(document.getElementById('eventDetailModal'));
+            const title = document.getElementById('eventDetailTitle');
+            const body = document.getElementById('eventDetailBody');
+            const editBtn = document.getElementById('editEventBtn');
+            const deleteBtn = document.getElementById('deleteEventBtn');
+            
+            title.textContent = event.title;
+            
+            const eventTypeMap = {
+                'meeting': 'Meeting',
+                'site_visit': 'Site Visit',
+                'client_call': 'Client Call',
+                'team_meeting': 'Team Meeting',
+                'deadline': 'Deadline',
+                'other': 'Other'
+            };
+            
+            const eventType = eventTypeMap[event.extendedProps.event_type] || event.extendedProps.event_type;
+            const locationHtml = event.extendedProps.location ? 
+                `<p><strong>Location:</strong> ${event.extendedProps.location}</p>` : '';
+            const descriptionHtml = event.extendedProps.description ? 
+                `<p><strong>Description:</strong><br>${event.extendedProps.description}</p>` : '';
+            
+            body.innerHTML = `
+                <div class="mb-3">
+                    <span class="badge" style="background-color: ${event.backgroundColor};">${eventType}</span>
+                    ${event.allDay ? '<span class="badge bg-secondary ms-2">All Day</span>' : ''}
+                </div>
+                <p>
+                    <strong>Start:</strong> ${event.start ? event.start.toLocaleString() : 'N/A'}<br>
+                    <strong>End:</strong> ${event.end ? event.end.toLocaleString() : 'N/A'}
+                </p>
+                ${locationHtml}
+                ${descriptionHtml}
+                ${event.extendedProps.project_name ? `<p><strong>Related Project:</strong> ${event.extendedProps.project_name}</p>` : ''}
+                ${event.extendedProps.lead_name ? `<p><strong>Related Lead:</strong> ${event.extendedProps.lead_name}</p>` : ''}
+            `;
+            
+            editBtn.onclick = function() {
+                window.location.href = `/calendar/events/${event.id}/edit/`;
+            };
+            
+            deleteBtn.onclick = function() {
+                if (confirm('Are you sure you want to delete this event?')) {
+                    fetch(`/calendar/events/${event.id}/delete/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            modal.hide();
+                            calendar.getEventById(event.id).remove();
+                            showNotification('Event deleted successfully!', 'success');
+                        } else {
+                            showNotification('Error deleting event: ' + data.error, 'error');
+                        }
+                    });
+                }
+            };
+            
+            modal.show();
+        };
+    });
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3`;
+        notification.style.zIndex = 9999;
+        notification.innerHTML = message;
+        
+        // Add close button
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'btn-close ms-3';
+        closeBtn.setAttribute('data-bs-dismiss', 'alert');
+        notification.appendChild(closeBtn);
+        
+        // Add to document and remove after 5 seconds
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+</script>
+{% endblock %}

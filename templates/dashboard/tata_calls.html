@@ -1,0 +1,121 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}TATA Call Logs{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-headset text-primary me-2"></i>TATA Call Logs
+        </h2>
+        <p class="text-muted mb-0">View and manage calls from your TATA Telephony account</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="syncButton" onclick="syncCalls()">
+        <i class="fas fa-sync me-2"></i>Sync with TATA API
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Caller ID</th>
+                        <th>Destination</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Timestamp</th>
+                        <th>Associated Lead</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for call in call_logs %}
+                    <tr>
+                        <td><strong>{{ call.caller_id_number }}</strong></td>
+                        <td>{{ call.call_to_number }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ call.status|default:'N/A' }}</span>
+                        </td>
+                        <td>{{ call.call_duration_formatted }}</td>
+                        <td>{{ call.start_stamp|date:"M d, Y H:i" }}</td>
+                        <td>
+                            {% if call.associated_lead %}
+                                <a href="{% url 'view_lead' call.associated_lead.id %}">{{ call.associated_lead.name }}</a>
+                            {% else %}
+                                <span class="text-muted">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not call.associated_lead %}
+                            <a href="{% url 'add_lead' %}?phone={{ call.caller_id_number }}" class="btn btn-sm btn-success">
+                                <i class="fas fa-plus me-1"></i>Create Lead
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <p class="text-muted mb-0">No call logs found. Try syncing with the TATA API.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if call_logs.has_other_pages %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if call_logs.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ call_logs.previous_page_number }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">Page {{ call_logs.number }} of {{ call_logs.paginator.num_pages }}</span></li>
+                {% if call_logs.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ call_logs.next_page_number }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function syncCalls() {
+    const syncButton = document.getElementById('syncButton');
+    const originalText = syncButton.innerHTML;
+    syncButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Syncing...';
+    syncButton.disabled = true;
+
+    fetch('{% url "sync_tata_calls" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error syncing calls: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while syncing.');
+    })
+    .finally(() => {
+        syncButton.innerHTML = originalText;
+        syncButton.disabled = false;
+    });
+}
+</script>
+{% endblock %}

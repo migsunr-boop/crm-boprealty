@@ -1,0 +1,152 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Edit Event - BOP Realty{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-edit text-primary me-2"></i>Edit Event
+        </h2>
+        <p class="text-muted mb-0">Update calendar event details</p>
+    </div>
+    <a href="{% url 'calendar' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Calendar
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Event Title *</label>
+                            <input type="text" name="title" class="form-control" value="{{ event.title }}" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Event Type *</label>
+                            <select name="event_type" class="form-select" required>
+                                <option value="meeting" {% if event.event_type == 'meeting' %}selected{% endif %}>Meeting</option>
+                                <option value="site_visit" {% if event.event_type == 'site_visit' %}selected{% endif %}>Site Visit</option>
+                                <option value="client_call" {% if event.event_type == 'client_call' %}selected{% endif %}>Client Call</option>
+                                <option value="team_meeting" {% if event.event_type == 'team_meeting' %}selected{% endif %}>Team Meeting</option>
+                                <option value="deadline" {% if event.event_type == 'deadline' %}selected{% endif %}>Deadline</option>
+                                <option value="other" {% if event.event_type == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-check pt-4">
+                                <input class="form-check-input" type="checkbox" name="all_day" id="allDayCheck" 
+                                       {% if event.all_day %}checked{% endif %}>
+                                <label class="form-check-label" for="allDayCheck">
+                                    All Day Event
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Start Date & Time *</label>
+                            <input type="{{ event.all_day|yesno:'date,datetime-local' }}" name="start_time" class="form-control" 
+                                   value="{{ event.start_time|date:'Y-m-d\TH:i' }}" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">End Date & Time *</label>
+                            <input type="{{ event.all_day|yesno:'date,datetime-local' }}" name="end_time" class="form-control" 
+                                   value="{{ event.end_time|date:'Y-m-d\TH:i' }}" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Location</label>
+                            <input type="text" name="location" class="form-control" value="{{ event.location }}">
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3">{{ event.description }}</textarea>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Related Project</label>
+                            <select name="project" class="form-select">
+                                <option value="">None</option>
+                                {% for project in projects %}
+                                    <option value="{{ project.id }}" {% if event.project and event.project.id == project.id %}selected{% endif %}>
+                                        {{ project.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Related Lead</label>
+                            <select name="lead" class="form-select">
+                                <option value="">None</option>
+                                {% for lead in active_leads %}
+                                    <option value="{{ lead.id }}" {% if event.lead and event.lead.id == lead.id %}selected{% endif %}>
+                                        {{ lead.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Color</label>
+                            <input type="color" name="color" class="form-control form-control-color" value="{{ event.color }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Attendees</label>
+                            <select name="attendees" class="form-select" multiple>
+                                {% for member in team_members %}
+                                    <option value="{{ member.user.id }}" 
+                                            {% if member.user in event.attendees.all %}selected{% endif %}>
+                                        {{ member.user.get_full_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple attendees</div>
+                        </div>
+                        
+                        <div class="col-12 mt-4">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="{% url 'calendar' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-2"></i>Cancel
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Update Event
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle all-day event inputs
+    document.getElementById('allDayCheck').addEventListener('change', function() {
+        const startInput = document.querySelector('input[name="start_time"]');
+        const endInput = document.querySelector('input[name="end_time"]');
+        
+        if (this.checked) {
+            startInput.type = 'date';
+            endInput.type = 'date';
+        } else {
+            startInput.type = 'datetime-local';
+            endInput.type = 'datetime-local';
+        }
+    });
+</script>
+{% endblock %}

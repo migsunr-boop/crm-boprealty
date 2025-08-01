@@ -1,0 +1,179 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Team Management - BOP Realty{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-user-cog text-primary me-2"></i>Member Management
+        </h2>
+        <p class="text-muted mb-0">Manage team members and their permissions</p>
+    </div>
+    <a href="{% url 'add_member' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>Add New Member
+    </a>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2">Total Members</h6>
+                        <h2 class="card-title mb-0">{{ team_members.count }}</h2>
+                    </div>
+                    <i class="fas fa-users fa-2x  "></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card stat-card success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2  ">Active Members</h6>
+                        <h2 class="card-title mb-0">{{ team_members.count }}</h2>
+                    </div>
+                    <i class="fas fa-shield-alt fa-2x  "></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card stat-card warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2  ">Admins</h6>
+                        <h2 class="card-title mb-0">1</h2>
+                    </div>
+                    <i class="fas fa-crown fa-2x  "></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Team Members Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Team Members</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Role</th>
+                        <th>Permissions</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member in team_members %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if member.profile_picture %}
+                                    <img src="{{ member.profile_picture.url }}" class="rounded-circle me-3" width="40" height="40">
+                                {% else %}
+                                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                         style="width: 40px; height: 40px;">
+                                        <span class="text-white fw-bold">{{ member.user.first_name.0 }}{{ member.user.last_name.0 }}</span>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <div class="fw-semibold">{{ member.user.get_full_name }}</div>
+                                    <small class="text-muted">{{ member.user.email }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ member.get_role_display }}</span>
+                        </td>
+                        <td>
+                            <div class="text-sm">
+                                {% if member.can_access_dashboard %}
+                                    <span class="badge bg-light text-dark me-1">Dashboard</span>
+                                {% endif %}
+                                {% if member.can_access_leads %}
+                                    <span class="badge bg-light text-dark me-1">Leads</span>
+                                {% endif %}
+                                {% if member.can_access_projects %}
+                                    <span class="badge bg-light text-dark me-1">Projects</span>
+                                {% endif %}
+                                <br>
+                                <small class="text-muted">
+                                    +{{ member.can_access_reports|add:member.can_access_earnings|add:member.can_access_clients|add:member.can_access_calendar|add:member.can_access_tasks|add:member.can_access_analytics }} more
+                                </small>
+                            </div>
+                        </td>
+                        <td>{{ member.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'edit_member' member.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete({{ member.id }}, '{{ member.user.get_full_name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            No team members found. <a href="{% url 'add_member' %}">Add your first member</a>.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to remove <strong id="memberName"></strong> from the team?</p>
+                <p class="text-muted">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" id="deleteForm" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete Member</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function confirmDelete(memberId, memberName) {
+        document.getElementById('memberName').textContent = memberName;
+        document.getElementById('deleteForm').action = `/team/${memberId}/delete/`;
+        
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

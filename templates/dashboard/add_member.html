@@ -1,0 +1,264 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Add Member - BOP Realty{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-user-plus text-primary me-2"></i>Add New Member
+        </h2>
+        <p class="text-muted mb-0">Add a new team member with specific permissions</p>
+    </div>
+    <a href="{% url 'team' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Team
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <!-- Basic Information -->
+                        <div class="col-12">
+                            <h5 class="text-primary mb-3">
+                                <i class="fas fa-user me-2"></i>Basic Information
+                            </h5>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" name="first_name" class="form-control" required value="{{ form_data.first_name|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name *</label>
+                            <input type="text" name="last_name" class="form-control" required value="{{ form_data.last_name|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Email Address *</label>
+                            <input type="email" name="email" class="form-control" required value="{{ form_data.email|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" name="phone" class="form-control" required value="{{ form_data.phone|default:'' }}">
+                        </div>
+
+                        <!-- Account Details -->
+                        <div class="col-12 mt-4">
+                            <h5 class="text-primary mb-3">
+                                <i class="fas fa-key me-2"></i>Account Details
+                            </h5>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Username *</label>
+                            <input type="text" name="username" class="form-control" required value="{{ form_data.username|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Password *</label>
+                            <input type="password" name="password" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Role *</label>
+                            <select name="role" class="form-select" required id="role-select">
+                                <option value="">Select Role</option>
+                                {% for value, label in role_choices %}
+                                    <option value="{{ value }}" {% if form_data.role == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6" id="manager-field">
+                            <label class="form-label">Manager *</label>
+                            <select name="manager" class="form-select" id="manager-select">
+                                <option value="">Select Manager</option>
+                                {% for manager in managers %}
+                                    <option value="{{ manager.id }}" {% if form_data.manager == manager.id|stringformat:"i" %}selected{% endif %}>
+                                        {{ manager.user.get_full_name }} ({{ manager.get_role_display }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Required for all roles except Admin and Manager</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="date" name="date_of_birth" class="form-control" value="{{ form_data.date_of_birth|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Joining Date</label>
+                            <input type="date" name="joining_date" class="form-control" value="{{ form_data.joining_date|default:'' }}">
+                        </div>
+
+                        <!-- Permissions -->
+                        <div class="col-12 mt-4">
+                            <h5 class="text-primary mb-3">
+                                <i class="fas fa-shield-alt me-2"></i>Page Access Permissions
+                            </h5>
+                            <p class="text-muted">Select which pages this member can access</p>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_dashboard" id="dashboard" checked>
+                                        <label class="form-check-label" for="dashboard">
+                                            <strong>Dashboard</strong>
+                                            <br><small class="text-muted">View dashboard analytics</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_projects" id="projects" checked>
+                                        <label class="form-check-label" for="projects">
+                                            <strong>Projects</strong>
+                                            <br><small class="text-muted">View and manage projects</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_leads" id="leads" checked>
+                                        <label class="form-check-label" for="leads">
+                                            <strong>Lead Management</strong>
+                                            <br><small class="text-muted">Manage leads and contacts</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_clients" id="clients" checked>
+                                        <label class="form-check-label" for="clients">
+                                            <strong>Client Portal</strong>
+                                            <br><small class="text-muted">Access client information</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_reports" id="reports">
+                                        <label class="form-check-label" for="reports">
+                                            <strong>Reports</strong>
+                                            <br><small class="text-muted">Generate and view reports</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_earnings" id="earnings">
+                                        <label class="form-check-label" for="earnings">
+                                            <strong>Earnings</strong>
+                                            <br><small class="text-muted">View earnings and commissions</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_calendar" id="calendar" checked>
+                                        <label class="form-check-label" for="calendar">
+                                            <strong>Calendar</strong>
+                                            <br><small class="text-muted">Manage appointments and schedules</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_tasks" id="tasks" checked>
+                                        <label class="form-check-label" for="tasks">
+                                            <strong>Task Manager</strong>
+                                            <br><small class="text-muted">Create and manage tasks</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="can_access_analytics" id="analytics">
+                                        <label class="form-check-label" for="analytics">
+                                            <strong>Advanced Analytics</strong>
+                                            <br><small class="text-muted">Access detailed analytics</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="col-12 mt-4">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="{% url 'team' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-2"></i>Cancel
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Add Member
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-generate username from first and last name
+    document.addEventListener('DOMContentLoaded', function() {
+        const firstNameInput = document.querySelector('input[name="first_name"]');
+        const lastNameInput = document.querySelector('input[name="last_name"]');
+        const usernameInput = document.querySelector('input[name="username"]');
+        const roleSelect = document.getElementById('role-select');
+        const managerField = document.getElementById('manager-field');
+        const managerSelect = document.getElementById('manager-select');
+        
+        function generateUsername() {
+            const firstName = firstNameInput.value.toLowerCase().replace(/\s+/g, '');
+            const lastName = lastNameInput.value.toLowerCase().replace(/\s+/g, '');
+            if (firstName && lastName) {
+                usernameInput.value = firstName + '.' + lastName;
+            }
+        }
+        
+        function toggleManagerField() {
+            const selectedRole = roleSelect.value;
+            
+            if (selectedRole === 'admin' || selectedRole === 'manager') {
+                managerField.style.display = 'none';
+                managerSelect.required = false;
+            } else {
+                managerField.style.display = 'block';
+                managerSelect.required = true;
+            }
+        }
+        
+        firstNameInput.addEventListener('input', generateUsername);
+        lastNameInput.addEventListener('input', generateUsername);
+        roleSelect.addEventListener('change', toggleManagerField);
+        
+        // Initialize on page load
+        toggleManagerField();
+    });
+</script>
+{% endblock %}

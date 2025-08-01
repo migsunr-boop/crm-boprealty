@@ -1,0 +1,325 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Attendance Management{% endblock %}
+{% block page_title %}Attendance Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Attendance Management</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAttendanceModal">
+                <i class="fas fa-plus"></i> Add Attendance
+            </button>
+            <button type="button" class="btn btn-success" onclick="syncFromAPI()">
+                <i class="fas fa-sync"></i> Sync from API
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label for="date_from" class="form-label">From Date</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_to" class="form-label">To Date</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+            </div>
+            <div class="col-md-3">
+                <label for="employee" class="form-label">Employee</label>
+                <select class="form-select" id="employee" name="employee">
+                    <option value="">All Employees</option>
+                    {% for emp in employees %}
+                        <option value="{{ emp.id }}" {% if selected_employee == emp.id|stringformat:"s" %}selected{% endif %}>
+                            {{ emp.get_full_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="">All Status</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-outline-primary">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Attendance Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Date</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Hours</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in attendance %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                     style="width: 32px; height: 32px;">
+                                    <span class="text-white small fw-bold">{{ record.employee.first_name.0 }}{{ record.employee.last_name.0 }}</span>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold">{{ record.employee.get_full_name }}</div>
+                                    <small class="text-muted">{{ record.employee.teammember.get_role_display }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ record.date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if record.check_in_time %}
+                                <span class="{% if record.status == 'late' %}text-warning{% elif record.status == 'half_day' %}text-danger{% else %}text-success{% endif %}">
+                                    {{ record.check_in_time|time:"H:i" }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.check_out_time %}
+                                {{ record.check_out_time|time:"H:i" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.hours_worked %}
+                                {{ record.hours_worked }} hrs
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if record.status == 'present' %}success{% elif record.status == 'late' %}warning{% elif record.status == 'half_day' %}danger{% elif record.status == 'work_from_home' %}info{% else %}secondary{% endif %}">
+                                {{ record.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if record.notes %}
+                                <span data-bs-toggle="tooltip" title="{{ record.notes }}">
+                                    {{ record.notes|truncatechars:30 }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" onclick="editAttendance({{ record.id }})" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" onclick="deleteAttendance({{ record.id }})" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="fas fa-clock fa-3x mb-3"></i>
+                            <br>No attendance records found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if attendance.has_other_pages %}
+        <nav aria-label="Attendance pagination">
+            <ul class="pagination justify-content-center">
+                {% if attendance.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ attendance.previous_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if selected_employee %}&employee={{ selected_employee }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">Previous</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in attendance.paginator.page_range %}
+                    {% if attendance.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > attendance.number|add:'-3' and num < attendance.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if selected_employee %}&employee={{ selected_employee }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if attendance.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ attendance.next_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if selected_employee %}&employee={{ selected_employee }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Attendance Modal -->
+<div class="modal fade" id="addAttendanceModal" tabindex="-1" aria-labelledby="addAttendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addAttendanceModalLabel">Add Attendance Record</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addAttendanceForm">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="employee_select" class="form-label">Employee <span class="text-danger">*</span></label>
+                        <select class="form-select" id="employee_select" name="employee" required>
+                            <option value="">Select Employee</option>
+                            {% for emp in employees %}
+                                <option value="{{ emp.id }}">{{ emp.get_full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="attendance_date" class="form-label">Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="attendance_date" name="date" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="check_in_time" class="form-label">Check In Time</label>
+                                <input type="time" class="form-control" id="check_in_time" name="check_in_time">
+                                <div class="form-text">Leave empty for absent</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="check_out_time" class="form-label">Check Out Time</label>
+                                <input type="time" class="form-control" id="check_out_time" name="check_out_time">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="attendance_status" class="form-label">Status</label>
+                        <select class="form-select" id="attendance_status" name="status">
+                            {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if value == 'present' %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Status will be auto-calculated based on check-in time if set to 'Present'</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="attendance_notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="attendance_notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Attendance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Set today's date as default
+document.getElementById('attendance_date').value = new Date().toISOString().split('T')[0];
+
+// Handle form submission
+document.getElementById('addAttendanceForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('{% url "add_attendance" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while adding attendance.');
+    });
+});
+
+function syncFromAPI() {
+    // This would integrate with external attendance API
+    alert('API sync functionality would be implemented here based on your external attendance system.');
+}
+
+function editAttendance(id) {
+    // Edit attendance functionality
+    alert('Edit attendance functionality for ID: ' + id);
+}
+
+function deleteAttendance(id) {
+    if (confirm('Are you sure you want to delete this attendance record?')) {
+        // Delete attendance functionality
+        alert('Delete attendance functionality for ID: ' + id);
+    }
+}
+
+// Auto-calculate status based on check-in time
+document.getElementById('check_in_time').addEventListener('change', function() {
+    const checkInTime = this.value;
+    const statusSelect = document.getElementById('attendance_status');
+    
+    if (checkInTime && statusSelect.value === 'present') {
+        const [hours, minutes] = checkInTime.split(':').map(Number);
+        const checkInMinutes = hours * 60 + minutes;
+        const cutoffMinutes = 10 * 60 + 30; // 10:30 AM
+        const bufferMinutes = 10 * 60 + 40; // 10:40 AM
+        
+        if (checkInMinutes > bufferMinutes) {
+            statusSelect.value = 'half_day';
+        } else if (checkInMinutes > cutoffMinutes) {
+            statusSelect.value = 'late';
+        } else {
+            statusSelect.value = 'present';
+        }
+    }
+});
+</script>
+{% endblock %}

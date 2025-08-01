@@ -1,0 +1,112 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Reports & Analytics{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Reports & Analytics</h1>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label for="source" class="form-label">Source</label>
+                <select class="form-select" id="source" name="source">
+                    <option value="">All Sources</option>
+                    {% for value, label in sources %}
+                        <option value="{{ value }}" {% if current_source == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="team" class="form-label">Team Member</label>
+                <select class="form-select" id="team" name="team">
+                    <option value="">All Members</option>
+                    {% for member in teams %}
+                        <option value="{{ member.id }}" {% if current_team == member.id|stringformat:"s" %}selected{% endif %}>{{ member.get_full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+             <div class="col-md-2">
+                <label for="project" class="form-label">Project</label>
+                <select class="form-select" id="project" name="project">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                        <option value="{{ project.id }}" {% if current_project == project.id|stringformat:"s" %}selected{% endif %}>{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="date_from" class="form-label">From Date</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_to" class="form-label">To Date</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-outline-primary">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Leads by Source</div>
+            <div class="card-body">
+                <canvas id="sourceChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Leads by Status</div>
+            <div class="card-body">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Source Chart
+        const sourceCtx = document.getElementById('sourceChart').getContext('2d');
+        new Chart(sourceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [{% for item in leads_by_source %}"{{ item.source|capfirst }}",{% endfor %}],
+                datasets: [{
+                    data: [{% for item in leads_by_source %}{{ item.count }},{% endfor %}],
+                    backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6c757d'],
+                }]
+            }
+        });
+
+        // Status Chart
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: [{% for item in leads_by_status %}"{{ item.current_stage__category|capfirst }}",{% endfor %}],
+                datasets: [{
+                    data: [{% for item in leads_by_status %}{{ item.count }},{% endfor %}],
+                    backgroundColor: ['#ffc107', '#dc3545', '#17a2b8', '#28a745', '#6c757d'],
+                }]
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends 'dashboard_base.html' %}
+{% load static %}
+
+{% block page_title %}Advanced Analytics{% endblock %}
+{% block page_description %}Deep insights into your business performance{% endblock %}
+{% block page_icon %}fas fa-chart-pie{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="analytics-card">
+            <div class="card-icon">
+                <i class="fas fa-rupee-sign"></i>
+            </div>
+            <div class="card-content">
+                <h3>₹{{ analytics_data.total_revenue|floatformat:0|default:"0" }}</h3>
+                <p>Total Revenue</p>
+                <span class="trend positive"><i class="fas fa-arrow-up"></i> 15%</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="analytics-card">
+            <div class="card-icon">
+                <i class="fas fa-handshake"></i>
+            </div>
+            <div class="card-content">
+                <h3>₹{{ analytics_data.avg_deal_size|floatformat:0|default:"0" }}</h3>
+                <p>Avg Deal Size</p>
+                <span class="trend positive"><i class="fas fa-arrow-up"></i> 8%</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="analytics-card">
+            <div class="card-icon">
+                <i class="fas fa-percentage"></i>
+            </div>
+            <div class="card-content">
+                <h3>{{ analytics_data.conversion_rate|default:"0" }}%</h3>
+                <p>Conversion Rate</p>
+                <span class="trend positive"><i class="fas fa-arrow-up"></i> 12%</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="analytics-card">
+            <div class="card-icon">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <div class="card-content">
+                <h3>{{ analytics_data.top_performing_projects|length|default:"0" }}</h3>
+                <p>Top Projects</p>
+                <span class="trend positive"><i class="fas fa-arrow-up"></i> 5%</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5><i class="fas fa-chart-line"></i> Performance Trends</h5>
+            </div>
+            <canvas id="performanceChart"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5><i class="fas fa-star"></i> Top Performing Projects</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for project in analytics_data.top_performing_projects %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ project.name }}</strong>
+                        <br><small class="text-muted">{{ project.location }}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">{{ project.lead_count }} leads</span>
+                </div>
+                {% empty %}
+                <div class="list-group-item text-center">
+                    <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No data available</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const performanceCtx = document.getElementById('performanceChart');
+    if (performanceCtx) {
+        new Chart(performanceCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Revenue (₹L)',
+                    data: [25, 30, 28, 35, 32, 45],
+                    borderColor: '#8B5CF6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'Leads',
+                    data: [45, 52, 48, 61, 55, 67],
+                    borderColor: '#059669',
+                    backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

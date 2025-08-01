@@ -1,0 +1,66 @@
+{% extends 'dashboard_base.html' %}
+{% load static %}
+
+{% block page_title %}Find Your Project{% endblock %}
+{% block page_description %}Discover premium real estate projects and opportunities{% endblock %}
+{% block page_icon %}fas fa-building{% endblock %}
+
+{% block content %}
+<div class="search-section">
+    <h2>Find Your Dream Project</h2>
+    <form method="GET" action="{% url 'projects' %}">
+        <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="text" class="form-control" name="search" placeholder="Enter keyword, location, or project name..." 
+                   value="{{ search_query }}" id="projectSearch">
+            <button type="submit" class="btn btn-search">
+                <i class="fas fa-search"></i>
+                Search
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="projects-grid" id="projectsGrid">
+    {% for project in projects %}
+        <div class="project-card">
+            <div class="project-image">
+                {% if project.image %}
+                    <img src="{{ project.image.url }}" alt="{{ project.name }}">
+                {% else %}
+                    <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=250&fit=crop" alt="{{ project.name }}">
+                {% endif %}
+                {% if project.status == 'featured' %}
+                    <div class="project-badge">Featured</div>
+                {% elif project.status == 'upcoming' %}
+                    <div class="project-badge">New Launch</div>
+                {% endif %}
+            </div>
+            <div class="project-content">
+                <h5>{{ project.name }}</h5>
+                <p><i class="fas fa-map-marker-alt"></i> {{ project.location }}</p>
+                <div class="project-details">
+                    <span><i class="fas fa-home"></i> {{ project.bhk_options }}</span>
+                    <span><i class="fas fa-rupee-sign"></i> {{ project.get_price_range }}</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm" onclick="downloadBrochure({{ project.id }})">
+                        <i class="fas fa-download"></i> Download Brochure
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="viewDetails('{{ project.name }}')">
+                        <i class="fas fa-eye"></i> View Details
+                    </button>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h4>No projects found</h4>
+                <p class="text-muted">Try adjusting your search criteria</p>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

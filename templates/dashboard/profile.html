@@ -1,0 +1,1046 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<style>
+.profile-container {
+    background: transparent;
+    padding: 0;
+}
+
+.profile-accordion .accordion-item {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.profile-accordion .accordion-header {
+    border-radius: 12px;
+}
+
+.profile-accordion .accordion-button {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+    border: none;
+    border-radius: 12px;
+    color: #1e293b;
+    font-weight: 600;
+    padding: 1.25rem 1.5rem;
+    font-size: 1.1rem;
+}
+
+.profile-accordion .accordion-button:not(.collapsed) {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    box-shadow: none;
+}
+
+.profile-accordion .accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(139, 92, 246, 0.25);
+}
+
+.profile-accordion .accordion-body {
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 0 0 12px 12px;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-top: 1rem;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.calendar-day.header {
+    background: #8b5cf6;
+    color: white;
+    font-weight: 600;
+    cursor: default;
+}
+
+.calendar-day.present {
+    background: #10b981;
+    color: white;
+}
+
+.calendar-day.absent {
+    background: #ef4444;
+    color: white;
+}
+
+.calendar-day.leave {
+    background: #f59e0b;
+    color: white;
+}
+
+.calendar-day.today {
+    border-color: #8b5cf6;
+    font-weight: 700;
+}
+
+.calendar-day.empty {
+    background: transparent;
+    cursor: default;
+}
+
+.punch-button {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.punch-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 35px rgba(16, 185, 129, 0.5);
+}
+
+.punch-button.punched {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.punch-button.punched:hover {
+    box-shadow: 0 12px 35px rgba(139, 92, 246, 0.5);
+}
+
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.status-present {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-absent {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.holiday-card {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.holiday-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.2);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 0.25rem rgba(139, 92, 246, 0.25);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #8b5cf6;
+}
+
+.calendar-legend {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+</style>
+
+<div class="profile-container">
+    <div class="accordion profile-accordion" id="profileAccordion">
+        
+        <!-- Personal Information Section -->
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="personalInfoHeading">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#personalInfo" aria-expanded="true" aria-controls="personalInfo">
+                    <i class="fas fa-user me-3"></i>
+                    Personal Information
+                </button>
+            </h2>
+            <div id="personalInfo" class="accordion-collapse collapse show" aria-labelledby="personalInfoHeading" data-bs-parent="#profileAccordion">
+                <div class="accordion-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            {% if team_member and team_member.profile_picture %}
+                                <img src="{{ team_member.profile_picture.url }}" alt="Profile" class="profile-avatar mb-3">
+                            {% else %}
+                                <div class="profile-avatar mb-3 d-flex align-items-center justify-content-center bg-light">
+                                    <i class="fas fa-user fa-2x text-muted"></i>
+                                </div>
+                            {% endif %}
+                            <h5>{{ user.get_full_name }}</h5>
+                            {% if team_member %}
+                                <p class="text-muted">{{ team_member.get_role_display }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <form method="post" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="first_name" class="form-label">First Name</label>
+                                            <input type="text" class="form-control" id="first_name" name="first_name" 
+                                                   value="{{ user.first_name }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="last_name" class="form-label">Last Name</label>
+                                            <input type="text" class="form-control" id="last_name" name="last_name" 
+                                                   value="{{ user.last_name }}" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="email" class="form-label">Email Address</label>
+                                            <input type="email" class="form-control" id="email" name="email" 
+                                                   value="{{ user.email }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="phone" class="form-label">Phone Number</label>
+                                            <input type="tel" class="form-control" id="phone" name="phone" 
+                                                   value="{{ team_member.phone|default:'' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if team_member %}
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="date_of_birth" class="form-label">Date of Birth</label>
+                                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
+                                                   value="{{ team_member.date_of_birth|date:'Y-m-d' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="joining_date" class="form-label">Joining Date</label>
+                                            <input type="date" class="form-control" id="joining_date" name="joining_date" 
+                                                   value="{{ team_member.joining_date|date:'Y-m-d' }}" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="profile_picture" class="form-label">Profile Picture</label>
+                                    <input type="file" class="form-control" id="profile_picture" name="profile_picture" accept="image/*">
+                                </div>
+                                {% endif %}
+                                
+                                <div class="d-flex justify-content-between">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Update Profile
+                                    </button>
+                                    <a href="#" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                                        <i class="fas fa-key me-2"></i>Change Password
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Holidays Section -->
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="holidaysHeading">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#holidays" aria-expanded="false" aria-controls="holidays">
+                    <i class="fas fa-calendar-alt me-3"></i>
+                    Holidays & Events
+                </button>
+            </h2>
+            <div id="holidays" class="accordion-collapse collapse" aria-labelledby="holidaysHeading" data-bs-parent="#profileAccordion">
+                <div class="accordion-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Upcoming Holidays</h6>
+                            <div id="holidaysList">
+                                <!-- Holidays will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Company Events</h6>
+                            <div id="eventsList">
+                                <!-- Events will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payslip Request Section -->
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="payslipHeading">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#payslip" aria-expanded="false" aria-controls="payslip">
+                    <i class="fas fa-file-invoice-dollar me-3"></i>
+                    Payslip Requests
+                </button>
+            </h2>
+            <div id="payslip" class="accordion-collapse collapse" aria-labelledby="payslipHeading" data-bs-parent="#profileAccordion">
+                <div class="accordion-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Request New Payslip</h6>
+                            <form id="payslipRequestForm">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="payslip_month" class="form-label">Month & Year</label>
+                                    <input type="month" class="form-control" id="payslip_month" name="payslip_month" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="payslip_reason" class="form-label">Reason for Request</label>
+                                    <select class="form-select" id="payslip_reason" name="payslip_reason" required>
+                                        <option value="">Select reason...</option>
+                                        <option value="loan_application">Loan Application</option>
+                                        <option value="visa_application">Visa Application</option>
+                                        <option value="income_proof">Income Proof</option>
+                                        <option value="tax_filing">Tax Filing</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="otherReasonDiv" style="display: none;">
+                                    <label for="other_reason" class="form-label">Please specify</label>
+                                    <input type="text" class="form-control" id="other_reason" name="other_reason">
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Request
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Recent Requests</h6>
+                            <div id="payslipRequests">
+                                <!-- Recent payslip requests will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Attendance Section -->
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="attendanceHeading">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#attendance" aria-expanded="false" aria-controls="attendance">
+                    <i class="fas fa-clock me-3"></i>
+                    Daily Attendance
+                </button>
+            </h2>
+            <div id="attendance" class="accordion-collapse collapse" aria-labelledby="attendanceHeading" data-bs-parent="#profileAccordion">
+                <div class="accordion-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">Attendance Calendar - <span id="currentMonth"></span></h6>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="changeMonth(-1)">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="changeMonth(1)">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="calendar-legend">
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #10b981;"></div>
+                                    <span>Present</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #ef4444;"></div>
+                                    <span>Absent</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #f59e0b;"></div>
+                                    <span>Leave</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #8b5cf6;"></div>
+                                    <span>Today</span>
+                                </div>
+                            </div>
+                            
+                            <div class="calendar-grid" id="attendanceCalendar">
+                                <!-- Calendar will be generated here -->
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h6 class="mb-3">Today's Status</h6>
+                                <div id="todayStatus" class="status-badge status-absent mb-3">
+                                    Not Punched In
+                                </div>
+                                <div id="punchTimes" class="mb-3">
+                                    <small class="text-muted">
+                                        <div>Check-in: <span id="checkInTime">--:--</span></div>
+                                        <div>Check-out: <span id="checkOutTime">--:--</span></div>
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center mt-4">
+                                <h6 class="mb-3">Monthly Summary</h6>
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <div class="text-success">
+                                            <h4 id="presentDays">0</h4>
+                                            <small>Present</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="text-danger">
+                                            <h4 id="absentDays">0</h4>
+                                            <small>Absent</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="text-warning">
+                                            <h4 id="leaveDays">0</h4>
+                                            <small>Leave</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leave Application Section -->
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="leaveHeading">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#leave" aria-expanded="false" aria-controls="leave">
+                    <i class="fas fa-calendar-times me-3"></i>
+                    Leave Application
+                </button>
+            </h2>
+            <div id="leave" class="accordion-collapse collapse" aria-labelledby="leaveHeading" data-bs-parent="#profileAccordion">
+                <div class="accordion-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Apply for Leave</h6>
+                            <form id="leaveApplicationForm">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="leave_type" class="form-label">Leave Type</label>
+                                    <select class="form-select" id="leave_type" name="leave_type" required>
+                                        <option value="">Select leave type...</option>
+                                        <option value="sick">Sick Leave</option>
+                                        <option value="casual">Casual Leave</option>
+                                        <option value="annual">Annual Leave</option>
+                                        <option value="maternity">Maternity Leave</option>
+                                        <option value="paternity">Paternity Leave</option>
+                                        <option value="emergency">Emergency Leave</option>
+                                    </select>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="leave_from" class="form-label">From Date</label>
+                                            <input type="date" class="form-control" id="leave_from" name="leave_from" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="leave_to" class="form-label">To Date</label>
+                                            <input type="date" class="form-control" id="leave_to" name="leave_to" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="leave_reason" class="form-label">Reason</label>
+                                    <textarea class="form-control" id="leave_reason" name="leave_reason" rows="3" required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Application
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Leave Balance</h6>
+                            <div class="row mb-4">
+                                <div class="col-6">
+                                    <div class="text-center p-3 bg-light rounded">
+                                        <h4 class="text-primary">12</h4>
+                                        <small>Annual Leave</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-center p-3 bg-light rounded">
+                                        <h4 class="text-success">8</h4>
+                                        <small>Sick Leave</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3">Recent Applications</h6>
+                            <div id="leaveApplications">
+                                <!-- Recent leave applications will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Punch Attendance Section -->
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="punchHeading">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#punch" aria-expanded="false" aria-controls="punch">
+                    <i class="fas fa-fingerprint me-3"></i>
+                    Punch Attendance
+                </button>
+            </h2>
+            <div id="punch" class="accordion-collapse collapse" aria-labelledby="punchHeading" data-bs-parent="#profileAccordion">
+                <div class="accordion-body">
+                    <div class="text-center">
+                        <h5 class="mb-4">Today's Attendance</h5>
+                        <div class="mb-4">
+                            <div class="h4" id="currentDateTime"></div>
+                            <div class="text-muted" id="currentDate"></div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <button class="punch-button" id="punchButton" onclick="punchAttendance()">
+                                <div>
+                                    <i class="fas fa-fingerprint fa-2x mb-2"></i>
+                                    <div id="punchText">PUNCH IN</div>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div class="p-3 bg-light rounded">
+                                    <h5 id="punchInDisplay">--:--</h5>
+                                    <small class="text-muted">Check In</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 bg-light rounded">
+                                    <h5 id="punchOutDisplay">--:--</h5>
+                                    <small class="text-muted">Check Out</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <div class="p-3 bg-light rounded">
+                                <h6>Working Hours: <span id="workingHours">0h 0m</span></h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Change Password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="changePasswordForm">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="old_password" class="form-label">Current Password</label>
+                        <input type="password" class="form-control" id="old_password" name="old_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password1" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="new_password1" name="new_password1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password2" class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" id="new_password2" name="new_password2" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentDate = new Date();
+let currentMonth = currentDate.getMonth();
+let currentYear = currentDate.getFullYear();
+let isPunchedIn = false;
+let punchInTime = null;
+let punchOutTime = null;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    updateDateTime();
+    loadAttendanceCalendar();
+    loadHolidays();
+    loadPayslipRequests();
+    loadLeaveApplications();
+    checkTodayAttendance();
+    
+    // Update time every second
+    setInterval(updateDateTime, 1000);
+    
+    // Payslip reason change handler
+    document.getElementById('payslip_reason').addEventListener('change', function() {
+        const otherDiv = document.getElementById('otherReasonDiv');
+        if (this.value === 'other') {
+            otherDiv.style.display = 'block';
+            document.getElementById('other_reason').required = true;
+        } else {
+            otherDiv.style.display = 'none';
+            document.getElementById('other_reason').required = false;
+        }
+    });
+    
+    // Form submissions
+    document.getElementById('payslipRequestForm').addEventListener('submit', submitPayslipRequest);
+    document.getElementById('leaveApplicationForm').addEventListener('submit', submitLeaveApplication);
+    document.getElementById('changePasswordForm').addEventListener('submit', changePassword);
+});
+
+function updateDateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { 
+        hour12: true, 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    const dateString = now.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    
+    document.getElementById('currentDateTime').textContent = timeString;
+    document.getElementById('currentDate').textContent = dateString;
+    
+    // Update working hours if punched in
+    if (isPunchedIn && punchInTime) {
+        updateWorkingHours();
+    }
+}
+
+function loadAttendanceCalendar() {
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"];
+    
+    document.getElementById('currentMonth').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+    
+    const calendar = document.getElementById('attendanceCalendar');
+    calendar.innerHTML = '';
+    
+    // Add day headers
+    const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayHeaders.forEach(day => {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'calendar-day header';
+        dayElement.textContent = day;
+        calendar.appendChild(dayElement);
+    });
+    
+    // Get first day of month and number of days
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const today = new Date();
+    
+    // Add empty cells for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+        const emptyDay = document.createElement('div');
+        emptyDay.className = 'calendar-day empty';
+        calendar.appendChild(emptyDay);
+    }
+    
+    // Add days of month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'calendar-day';
+        dayElement.textContent = day;
+        
+        // Check if it's today
+        if (currentYear === today.getFullYear() && 
+            currentMonth === today.getMonth() && 
+            day === today.getDate()) {
+            dayElement.classList.add('today');
+        }
+        
+        // Add attendance status (mock data for now)
+        const attendanceStatus = getAttendanceStatus(day);
+        if (attendanceStatus) {
+            dayElement.classList.add(attendanceStatus);
+        }
+        
+        calendar.appendChild(dayElement);
+    }
+    
+    updateMonthlySummary();
+}
+
+function getAttendanceStatus(day) {
+    // Mock attendance data - replace with actual API call
+    const mockData = {
+        1: 'present', 2: 'present', 3: 'absent', 4: 'present', 5: 'present',
+        8: 'present', 9: 'present', 10: 'leave', 11: 'present', 12: 'present',
+        15: 'present', 16: 'absent', 17: 'present', 18: 'present', 19: 'present'
+    };
+    return mockData[day] || null;
+}
+
+function updateMonthlySummary() {
+    // Calculate monthly summary (mock data)
+    let present = 0, absent = 0, leave = 0;
+    
+    for (let day = 1; day <= new Date(currentYear, currentMonth + 1, 0).getDate(); day++) {
+        const status = getAttendanceStatus(day);
+        if (status === 'present') present++;
+        else if (status === 'absent') absent++;
+        else if (status === 'leave') leave++;
+    }
+    
+    document.getElementById('presentDays').textContent = present;
+    document.getElementById('absentDays').textContent = absent;
+    document.getElementById('leaveDays').textContent = leave;
+}
+
+function changeMonth(direction) {
+    currentMonth += direction;
+    if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+    } else if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+    }
+    loadAttendanceCalendar();
+}
+
+function checkTodayAttendance() {
+    // Check if already punched in today (mock data)
+    const today = new Date().toDateString();
+    const savedPunchIn = localStorage.getItem(`punchIn_${today}`);
+    const savedPunchOut = localStorage.getItem(`punchOut_${today}`);
+    
+    if (savedPunchIn) {
+        isPunchedIn = true;
+        punchInTime = new Date(savedPunchIn);
+        document.getElementById('punchInDisplay').textContent = punchInTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+        document.getElementById('checkInTime').textContent = punchInTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+        document.getElementById('todayStatus').className = 'status-badge status-present';
+        document.getElementById('todayStatus').textContent = 'Punched In';
+        
+        if (savedPunchOut) {
+            punchOutTime = new Date(savedPunchOut);
+            document.getElementById('punchOutDisplay').textContent = punchOutTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+            document.getElementById('checkOutTime').textContent = punchOutTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+            document.getElementById('punchText').textContent = 'PUNCHED OUT';
+            document.getElementById('punchButton').classList.add('punched');
+            isPunchedIn = false;
+        } else {
+            document.getElementById('punchText').textContent = 'PUNCH OUT';
+            document.getElementById('punchButton').classList.add('punched');
+        }
+        
+        updateWorkingHours();
+    }
+}
+
+function punchAttendance() {
+    const now = new Date();
+    const today = now.toDateString();
+    
+    if (!isPunchedIn && !punchOutTime) {
+        // Punch In
+        isPunchedIn = true;
+        punchInTime = now;
+        localStorage.setItem(`punchIn_${today}`, now.toISOString());
+        
+        document.getElementById('punchInDisplay').textContent = now.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+        document.getElementById('checkInTime').textContent = now.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+        document.getElementById('punchText').textContent = 'PUNCH OUT';
+        document.getElementById('punchButton').classList.add('punched');
+        document.getElementById('todayStatus').className = 'status-badge status-present';
+        document.getElementById('todayStatus').textContent = 'Punched In';
+        
+        showAlert('success', 'Successfully punched in!');
+        
+    } else if (isPunchedIn && !punchOutTime) {
+        // Punch Out
+        isPunchedIn = false;
+        punchOutTime = now;
+        localStorage.setItem(`punchOut_${today}`, now.toISOString());
+        
+        document.getElementById('punchOutDisplay').textContent = now.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+        document.getElementById('checkOutTime').textContent = now.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
+        document.getElementById('punchText').textContent = 'PUNCHED OUT';
+        document.getElementById('todayStatus').textContent = 'Punched Out';
+        
+        updateWorkingHours();
+        showAlert('success', 'Successfully punched out!');
+    }
+}
+
+function updateWorkingHours() {
+    if (punchInTime) {
+        const endTime = punchOutTime || new Date();
+        const diffMs = endTime - punchInTime;
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        document.getElementById('workingHours').textContent = `${hours}h ${minutes}m`;
+    }
+}
+
+function loadHolidays() {
+    // Mock holiday data
+    const holidays = [
+        { name: 'New Year', date: '2024-01-01', type: 'public' },
+        { name: 'Independence Day', date: '2024-08-15', type: 'public' },
+        { name: 'Gandhi Jayanti', date: '2024-10-02', type: 'public' },
+        { name: 'Diwali', date: '2024-11-12', type: 'festival' }
+    ];
+    
+    const holidaysList = document.getElementById('holidaysList');
+    holidaysList.innerHTML = '';
+    
+    holidays.forEach(holiday => {
+        const holidayCard = document.createElement('div');
+        holidayCard.className = 'holiday-card';
+        holidayCard.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">${holiday.name}</h6>
+                    <small class="text-muted">${new Date(holiday.date).toLocaleDateString()}</small>
+                </div>
+                <span class="badge bg-primary">${holiday.type}</span>
+            </div>
+        `;
+        holidaysList.appendChild(holidayCard);
+    });
+    
+    // Load events
+    const events = [
+        { name: 'Team Meeting', date: '2024-01-15', type: 'meeting' },
+        { name: 'Annual Party', date: '2024-12-25', type: 'celebration' }
+    ];
+    
+    const eventsList = document.getElementById('eventsList');
+    eventsList.innerHTML = '';
+    
+    events.forEach(event => {
+        const eventCard = document.createElement('div');
+        eventCard.className = 'holiday-card';
+        eventCard.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">${event.name}</h6>
+                    <small class="text-muted">${new Date(event.date).toLocaleDateString()}</small>
+                </div>
+                <span class="badge bg-success">${event.type}</span>
+            </div>
+        `;
+        eventsList.appendChild(eventCard);
+    });
+}
+
+function loadPayslipRequests() {
+    // Mock payslip requests
+    const requests = [
+        // { month: '2023-12', reason: 'Loan Application', status: 'approved', date: '2024-01-05' },
+        { month: '2023-11', reason: 'Income Proof', status: 'pending', date: '2024-01-03' }
+    ];
+    
+    const requestsList = document.getElementById('payslipRequests');
+    requestsList.innerHTML = '';
+    
+    requests.forEach(request => {
+        const statusClass = request.status === 'approved' ? 'success' : 
+                           request.status === 'pending' ? 'warning' : 'danger';
+        
+        const requestCard = document.createElement('div');
+        requestCard.className = 'holiday-card';
+        requestCard.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">${request.month}</h6>
+                    <small class="text-muted">${request.reason}</small>
+                </div>
+                <span class="badge bg-${statusClass}">${request.status}</span>
+            </div>
+        `;
+        requestsList.appendChild(requestCard);
+    });
+}
+
+function loadLeaveApplications() {
+    // Mock leave applications
+    const applications = [
+        { type: 'Sick Leave', from: '2024-01-10', to: '2024-01-12', status: 'approved' },
+        { type: 'Casual Leave', from: '2024-01-20', to: '2024-01-20', status: 'pending' }
+    ];
+    
+    const applicationsList = document.getElementById('leaveApplications');
+    applicationsList.innerHTML = '';
+    
+    applications.forEach(app => {
+        const statusClass = app.status === 'approved' ? 'success' : 
+                           app.status === 'pending' ? 'warning' : 'danger';
+        
+        const appCard = document.createElement('div');
+        appCard.className = 'holiday-card';
+        appCard.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">${app.type}</h6>
+                    <small class="text-muted">${app.from} to ${app.to}</small>
+                </div>
+                <span class="badge bg-${statusClass}">${app.status}</span>
+            </div>
+        `;
+        applicationsList.appendChild(appCard);
+    });
+}
+
+function submitPayslipRequest(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    // Mock submission
+    showAlert('success', 'Payslip request submitted successfully!');
+    e.target.reset();
+    loadPayslipRequests();
+}
+
+function submitLeaveApplication(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    // Mock submission
+    showAlert('success', 'Leave application submitted successfully!');
+    e.target.reset();
+    loadLeaveApplications();
+}
+
+function changePassword(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    if (data.new_password1 !== data.new_password2) {
+        showAlert('error', 'New passwords do not match!');
+        return;
+    }
+    
+    // Mock submission
+    showAlert('success', 'Password changed successfully!');
+    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+    e.target.reset();
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

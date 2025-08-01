@@ -1,0 +1,13 @@
+<li>
+    <div class="member-card role-{{ member.role }}">
+        <span class="member-name">{{ member.user.get_full_name }}</span>
+        <span class="member-role">({{ member.get_role_display }})</span>
+    </div>
+    {% if member.team_members.all %}
+        <ul>
+            {% for sub_member in member.team_members.all %}
+                {% include 'dashboard/team_member_node.html' with member=sub_member %}
+            {% endfor %}
+        </ul>
+    {% endif %}
+</li>

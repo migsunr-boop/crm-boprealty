@@ -1,0 +1,96 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Team Hierarchy{% endblock %}
+{% block page_title %}Team Hierarchy{% endblock %}
+
+{% block extra_css %}
+<style>
+.hierarchy-container {
+    padding: 2rem;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.hierarchy-tree, .hierarchy-tree ul {
+    list-style-type: none;
+    padding-left: 20px;
+    position: relative;
+}
+.hierarchy-tree ul {
+    margin-left: 20px;
+}
+.hierarchy-tree li {
+    margin: 10px 0;
+    position: relative;
+}
+.hierarchy-tree li::before, .hierarchy-tree li::after {
+    content: '';
+    position: absolute;
+    left: -20px;
+}
+.hierarchy-tree li::before {
+    border-top: 1px solid #ccc;
+    top: 25px;
+    width: 20px;
+    height: 0;
+}
+.hierarchy-tree li::after {
+    border-left: 1px solid #ccc;
+    height: 100%;
+    width: 0px;
+    top: 0;
+}
+.hierarchy-tree li:last-child::after {
+    height: 25px;
+}
+.member-card {
+    display: inline-block;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.member-name {
+    font-weight: bold;
+}
+.member-role {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+.role-admin { background-color: #ffebee; border-left: 4px solid #f44336; }
+.role-manager { background-color: #e3f2fd; border-left: 4px solid #2196f3; }
+.role-team_lead { background-color: #e8f5e9; border-left: 4px solid #4caf50; }
+.role-sales_executive { background-color: #fffde7; border-left: 4px solid #ffeb3b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-sitemap text-primary me-2"></i>Team Hierarchy
+        </h2>
+        <p class="text-muted mb-0">Visualize your team's reporting structure</p>
+    </div>
+    <a href="{% url 'team' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-users me-2"></i>View Team List
+    </a>
+</div>
+
+<div class="hierarchy-container">
+    {% if managers %}
+    <ul class="hierarchy-tree">
+        {% for manager in managers %}
+            {% include 'dashboard/team_member_node.html' with member=manager %}
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-sitemap fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">No Team Hierarchy to Display</h5>
+        <p class="text-muted">Start by assigning managers to team members in the <a href="{% url 'team' %}">team management</a> page.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

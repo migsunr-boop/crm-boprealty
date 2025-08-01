@@ -1,0 +1,84 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}IVR Webhooks Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-phone-volume text-info"></i> IVR Webhooks Management</h2>
+            <p class="text-muted">Configure and manage IVR call webhooks for automatic call data processing.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-cog"></i> Webhook Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="webhook_url" class="form-label">Webhook URL</label>
+                            <input type="url" class="form-control" id="webhook_url" name="webhook_url" 
+                                   placeholder="https://your-domain.com/webhook/ivr/" required>
+                            <div class="form-text">This URL will receive IVR call data from TATA.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="verify_token" class="form-label">Verify Token</label>
+                            <input type="text" class="form-control" id="verify_token" name="verify_token" 
+                                   placeholder="your-verify-token">
+                            <div class="form-text">Token for webhook verification.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="auto_create_leads" name="auto_create_leads" checked>
+                                <label class="form-check-label" for="auto_create_leads">
+                                    Auto-create leads from IVR calls
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Configuration
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> Setup Instructions</h5>
+                </div>
+                <div class="card-body">
+                    <ol>
+                        <li>Configure your webhook URL in TATA IVR panel</li>
+                        <li>Set the verify token for security</li>
+                        <li>Enable auto-lead creation if needed</li>
+                        <li>Test the webhook connection</li>
+                    </ol>
+                    
+                    <div class="alert alert-info mt-3">
+                        <strong>Note:</strong> Make sure your webhook URL is publicly accessible and uses HTTPS in production.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-bar"></i> Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">No recent IVR webhook activity.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

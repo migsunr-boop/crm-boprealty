@@ -1,0 +1,95 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Advanced Analytics{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-chart-pie text-primary me-2"></i>Advanced Analytics
+    </h1>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="project" class="form-label">Project</label>
+                <select class="form-select" id="project" name="project">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                        <option value="{{ project.id }}" {% if current_project == project.id|stringformat:"s" %}selected{% endif %}>{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="team" class="form-label">Team Member</label>
+                <select class="form-select" id="team" name="team">
+                    <option value="">All Members</option>
+                    {% for member in teams %}
+                        <option value="{{ member.id }}" {% if current_team == member.id|stringformat:"s" %}selected{% endif %}>{{ member.get_full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="source" class="form-label">Source</label>
+                <select class="form-select" id="source" name="source">
+                    <option value="">All Sources</option>
+                    {% for value, label in sources %}
+                        <option value="{{ value }}" {% if current_source == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i>Apply Filters
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Analytics Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Performance Report</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Dimension</th>
+                        <th>Total Leads</th>
+                        <th>Conversion Rate</th>
+                        <th>Total Cost</th>
+                        <th>Cost Per Lead (CPL)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in analytics_data %}
+                    <tr>
+                        <td><strong>{{ item.dimension }}</strong></td>
+                        <td>{{ item.total_leads }}</td>
+                        <td>{{ item.conversion_rate|floatformat:2 }}%</td>
+                        <td>₹{{ item.total_cost|floatformat:2 }}</td>
+                        <td>₹{{ item.cpl|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="fas fa-chart-bar fa-3x mb-3"></i><br>
+                            No data available for the selected filters.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

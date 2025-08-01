@@ -1,0 +1,130 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Edit Task - BOP Realty{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-edit text-primary me-2"></i>Edit Task
+        </h2>
+        <p class="text-muted mb-0">Update task details and assignments</p>
+    </div>
+    <a href="{% url 'tasks' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Tasks
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Task Title *</label>
+                            <input type="text" name="title" class="form-control" value="{{ task.title }}" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3">{{ task.description }}</textarea>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Category</label>
+                            <select name="category" class="form-select">
+                                <option value="">Select Category</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}" {% if task.category and task.category.id == category.id %}selected{% endif %}>
+                                        {{ category.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Stage *</label>
+                            <select name="stage" class="form-select" required>
+                                <option value="">Select Stage</option>
+                                {% for stage in stages %}
+                                    <option value="{{ stage.id }}" {% if task.stage.id == stage.id %}selected{% endif %}>
+                                        {{ stage.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Priority *</label>
+                            <select name="priority" class="form-select" required>
+                                <option value="low" {% if task.priority == 'low' %}selected{% endif %}>Low</option>
+                                <option value="medium" {% if task.priority == 'medium' %}selected{% endif %}>Medium</option>
+                                <option value="high" {% if task.priority == 'high' %}selected{% endif %}>High</option>
+                                <option value="urgent" {% if task.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Due Date</label>
+                            <input type="date" name="due_date" class="form-control" 
+                                   value="{{ task.due_date|date:'Y-m-d' }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Related Project</label>
+                            <select name="project" class="form-select">
+                                <option value="">Select Project</option>
+                                {% for project in projects %}
+                                    <option value="{{ project.id }}" {% if task.project and task.project.id == project.id %}selected{% endif %}>
+                                        {{ project.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Related Lead</label>
+                            <select name="lead" class="form-select">
+                                <option value="">Select Lead</option>
+                                {% for lead in leads %}
+                                    <option value="{{ lead.id }}" {% if task.lead and task.lead.id == lead.id %}selected{% endif %}>
+                                        {{ lead.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Assign To</label>
+                            <select name="assigned_to" class="form-select" multiple>
+                                {% for member in team_members %}
+                                    <option value="{{ member.user.id }}" 
+                                            {% if member.user in task.assigned_to.all %}selected{% endif %}>
+                                        {{ member.user.get_full_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple team members</div>
+                        </div>
+                        
+                        <div class="col-12 mt-4">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="{% url 'tasks' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-2"></i>Cancel
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Update Task
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
