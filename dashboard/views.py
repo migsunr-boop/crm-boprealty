@@ -2237,14 +2237,34 @@ def tata_chat_panel(request):
 
 @login_required
 def get_tata_conversations(request):
-    """Get TATA conversations via API"""
+    """Get TATA conversations from database"""
     try:
-        # This would integrate with your chat_panel.py
-        from .chat_panel import TataChatPanel
+        # Get all WhatsApp messages grouped by phone number
+        from django.db.models import Max
         
-        auth_token = 'YOUR_TATA_AUTH_TOKEN_HERE'  # Replace with actual token
-        chat_panel = TataChatPanel(auth_token)
-        conversations = chat_panel.get_conversations()
+        conversations = {}
+        
+        # Get latest message for each phone number
+        latest_messages = WhatsAppMessage.objects.values('phone_number').annotate(
+            latest_timestamp=Max('timestamp')
+        ).order_by('-latest_timestamp')
+        
+        for item in latest_messages:
+            phone = item['phone_number']
+            # Get all messages for this phone number
+            messages = WhatsAppMessage.objects.filter(
+                phone_number=phone
+            ).order_by('timestamp')
+            
+            conversations[phone] = []
+            for msg in messages:
+                conversations[phone].append({
+                    'id': msg.message_id,
+                    'text': msg.message_text,
+                    'timestamp': msg.timestamp,
+                    'type': msg.message_type,
+                    'sender': phone if msg.message_type == 'incoming' else 'agent'
+                })
         
         return JsonResponse({'success': True, 'conversations': conversations})
     except Exception as e:
@@ -2261,14 +2281,50 @@ def send_tata_reply(request):
             phone = data.get('phone')
             message = data.get('message')
             
-            # This would integrate with your chat_panel.py
-            from .chat_panel import TataChatPanel
+            # Send via TATA API
+            import requests
+            from django.conf import settings
             
-            auth_token = 'YOUR_TATA_AUTH_TOKEN_HERE'  # Replace with actual token
-            chat_panel = TataChatPanel(auth_token)
-            success = chat_panel.send_reply(phone, message)
+            url = 'https://wb.omni.tatatelebusiness.com/whatsapp-cloud/messages'
+            headers = {
+                'Authorization': f'Bearer {settings.TATA_AUTH_TOKEN}',
+                'Content-Type': 'application/json'
+            }
             
-            return JsonResponse({'success': success})
+            payload = {
+                'to': phone,
+                'type': 'text',
+                'source': 'crm',
+                'text': {'body': message}
+            }
+            
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                # Store outgoing message in database
+                WhatsAppMessage.objects.create(
+                    phone_number=phone,
+                    message_text=message,
+                    message_id=response.json().get('id', ''),
+                    timestamp=str(int(timezone.now().timestamp())),
+                    message_type='outgoing',
+                    status='sent'
+                )
+                
+                # Add note to lead
+                lead = Lead.objects.filter(phone=phone).first()
+                if lead:
+                    LeadNote.objects.create(
+                        lead=lead,
+                        note=f"WhatsApp reply sent: {message}",
+                        call_type='whatsapp',
+                        created_by=request.user
+                    )
+                
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'success': False, 'error': 'Failed to send message'})
+                
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     
@@ -2282,11 +2338,41 @@ def tata_webhook(request):
             import json
             payload = json.loads(request.body)
             
-            # Process the webhook
-            from .chat_panel import TataChatPanel
-            auth_token = 'YOUR_TATA_AUTH_TOKEN_HERE'
-            chat_panel = TataChatPanel(auth_token)
-            chat_panel.webhook_handler(payload)
+            # Handle WhatsApp messages
+            if 'messages' in payload:
+                msg = payload['messages']
+                phone = msg['from']
+                text = msg.get('text', {}).get('body', '')
+                timestamp = msg['timestamp']
+                msg_id = msg['id']
+                
+                # Store message in database
+                WhatsAppMessage.objects.create(
+                    phone_number=phone,
+                    message_text=text,
+                    message_id=msg_id,
+                    timestamp=timestamp,
+                    message_type='incoming',
+                    status='received'
+                )
+                
+                # Try to link to existing lead or create new one
+                lead = Lead.objects.filter(phone=phone).first()
+                if not lead:
+                    lead = Lead.objects.create(
+                        name=f"WhatsApp Lead {phone}",
+                        phone=phone,
+                        source='whatsapp',
+                        notes=f"First message: {text}"
+                    )
+                
+                # Add note to lead
+                LeadNote.objects.create(
+                    lead=lead,
+                    note=f"WhatsApp message: {text}",
+                    call_type='whatsapp',
+                    created_by_id=1  # Admin user
+                )
             
             return JsonResponse({'status': 'ok'})
         except Exception as e:

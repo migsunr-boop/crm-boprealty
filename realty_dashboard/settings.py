@@ -16,10 +16,9 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = ['*']
 
-# TATA Telephony API Settings
-TATA_API_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIzMTE2MDAiLCJjciI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9jbG91ZHBob25lLnRhdGF0ZWxlc2VydmljZXMuY29tL3Rva2VuL2dlbmVyYXRlIiwiaWF0IjoxNzUwNjY5Nzc3LCJleHAiOjIwNTA2Njk3NzcsIm5iZiI6MTc1MDY2OTc3NywianRpIjoiV2MzVnEzV1ljQjFpQTZoMCJ9.JNf5voDlLNCcK_ybN9iFgGhwDHKQ6XisdTPcYkvqovg"
-# IMPORTANT: Replace with the actual TATA API endpoint for call logs
-TATA_API_URL = "https://cloudtelefone.tatateleservices.com/v1/call/logs" 
+# TATA API Configuration
+TATA_AUTH_TOKEN = os.getenv('TATA_AUTH_TOKEN', '')
+TATA_BASE_URL = os.getenv('TATA_BASE_URL', 'https://wb.omni.tatatelebusiness.com') 
 
 
 # Application definition
