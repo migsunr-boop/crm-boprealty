@@ -28,24 +28,18 @@ class TATASync:
             sample_templates = [
                 {
                     'name': 'welcome_message',
-                    'language': 'en',
-                    'category': 'UTILITY',
-                    'status': 'APPROVED',
+                    'stage': 'stage_1_landing',
                     'message_template': 'Hello {name}, welcome to Bop Realty! We are excited to help you find your dream property.'
                 },
                 {
                     'name': 'property_inquiry',
-                    'language': 'en', 
-                    'category': 'MARKETING',
-                    'status': 'APPROVED',
-                    'message_template': 'Hi {name}, thank you for your interest in {property_name}. Our team will contact you shortly.'
+                    'stage': 'stage_2_interested',
+                    'message_template': 'Hi {name}, thank you for your interest in {project_name}. Our team will contact you shortly.'
                 },
                 {
                     'name': 'site_visit_reminder',
-                    'language': 'en',
-                    'category': 'UTILITY', 
-                    'status': 'APPROVED',
-                    'message_template': 'Hi {name}, reminder for your site visit to {property_name} on {date} at {time}.'
+                    'stage': 'stage_5_site_visit',
+                    'message_template': 'Hi {name}, reminder for your site visit to {project_name} on {date} at {time}.'
                 }
             ]
             
@@ -54,11 +48,9 @@ class TATASync:
                 template, created = WhatsAppTemplate.objects.get_or_create(
                     name=template_data['name'],
                     defaults={
-                        'language': template_data['language'],
-                        'category': template_data['category'],
-                        'status': template_data['status'],
+                        'stage': template_data['stage'],
                         'message_template': template_data['message_template'],
-                        'created_at': timezone.now()
+                        'is_active': True
                     }
                 )
                 templates_synced += 1
@@ -134,13 +126,23 @@ class TATASync:
                 result = response.json()
                 message_id = result.get('id')
                 
+                # Find or create lead for this phone number
+                lead = Lead.objects.filter(phone=to_number).first()
+                if not lead:
+                    lead = Lead.objects.create(
+                        name=f"WhatsApp Lead {to_number}",
+                        phone=to_number,
+                        email=f"{to_number}@whatsapp.temp",
+                        source='whatsapp'
+                    )
+                
                 # Save to database
                 WhatsAppMessage.objects.create(
+                    lead=lead,
                     phone_number=to_number,
                     message_content=f"Template: {template_name}",
                     message_id=message_id,
-                    status='sent',
-                    created_at=timezone.now()
+                    status='sent'
                 )
                 
                 return {'success': True, 'message_id': message_id}
@@ -170,13 +172,23 @@ class TATASync:
                 result = response.json()
                 message_id = result.get('id')
                 
+                # Find or create lead for this phone number
+                lead = Lead.objects.filter(phone=to_number).first()
+                if not lead:
+                    lead = Lead.objects.create(
+                        name=f"WhatsApp Lead {to_number}",
+                        phone=to_number,
+                        email=f"{to_number}@whatsapp.temp",
+                        source='whatsapp'
+                    )
+                
                 # Save to database
                 WhatsAppMessage.objects.create(
+                    lead=lead,
                     phone_number=to_number,
                     message_content=message_text,
                     message_id=message_id,
-                    status='sent',
-                    created_at=timezone.now()
+                    status='sent'
                 )
                 
                 return {'success': True, 'message_id': message_id}

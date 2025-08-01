@@ -3175,7 +3175,7 @@ def get_tata_templates(request):
     """Get all TATA templates from database"""
     try:
         templates = WhatsAppTemplate.objects.all().values(
-            'id', 'name', 'language', 'category', 'status', 'created_at'
+            'id', 'name', 'stage', 'is_active', 'created_at'
         )
         return JsonResponse({
             'success': True,
@@ -3189,14 +3189,23 @@ def get_tata_templates(request):
 def get_all_messages(request):
     """Get all WhatsApp messages from database"""
     try:
-        messages = WhatsAppMessage.objects.all().values(
-            'id', 'phone_number', 'message_content', 'status', 'created_at'
-        ).order_by('-created_at')[:100]
+        messages = WhatsAppMessage.objects.select_related('lead').all().order_by('-created_at')[:100]
+        
+        message_data = []
+        for msg in messages:
+            message_data.append({
+                'id': msg.id,
+                'phone_number': msg.phone_number,
+                'message_content': msg.message_content,
+                'status': msg.status,
+                'created_at': msg.created_at.isoformat(),
+                'lead_name': msg.lead.name if msg.lead else 'Unknown'
+            })
         
         return JsonResponse({
             'success': True,
-            'messages': list(messages),
-            'count': messages.count()
+            'messages': message_data,
+            'count': len(message_data)
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
