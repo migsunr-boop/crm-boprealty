@@ -16,6 +16,8 @@ urlpatterns = [
     path('api/sync-tata-templates/', views.sync_tata_templates, name='sync_tata_templates'),
     path('api/sync-tata-messages/', views.sync_tata_messages, name='sync_tata_messages'),
     path('api/sync-all-tata-data/', views.sync_all_tata_data, name='sync_all_tata_data'),
+    path('api/get-tata-templates/', views.get_tata_templates, name='get_tata_templates'),
+    path('api/get-all-messages/', views.get_all_messages, name='get_all_messages'),
     
     # Projects
     path('projects/', views.projects, name='projects'),

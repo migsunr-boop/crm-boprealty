@@ -23,47 +23,47 @@ class TATASync:
         return results
     
     def sync_templates(self):
-        """Fetch and sync WhatsApp templates"""
+        """Create sample WhatsApp templates for real estate"""
         try:
-            # Get template insights to fetch template data
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            sample_templates = [
+                {
+                    'name': 'welcome_message',
+                    'language': 'en',
+                    'category': 'UTILITY',
+                    'status': 'APPROVED',
+                    'message_template': 'Hello {name}, welcome to Bop Realty! We are excited to help you find your dream property.'
+                },
+                {
+                    'name': 'property_inquiry',
+                    'language': 'en', 
+                    'category': 'MARKETING',
+                    'status': 'APPROVED',
+                    'message_template': 'Hi {name}, thank you for your interest in {property_name}. Our team will contact you shortly.'
+                },
+                {
+                    'name': 'site_visit_reminder',
+                    'language': 'en',
+                    'category': 'UTILITY', 
+                    'status': 'APPROVED',
+                    'message_template': 'Hi {name}, reminder for your site visit to {property_name} on {date} at {time}.'
+                }
+            ]
             
-            url = f"{self.base_url}/templates/insights"
-            params = {
-                'startDate': start_date,
-                'endDate': end_date,
-                'granularity': 'DAILY',
-                'templateIDs': 'all'  # This might need adjustment based on actual API
-            }
+            templates_synced = 0
+            for template_data in sample_templates:
+                template, created = WhatsAppTemplate.objects.get_or_create(
+                    name=template_data['name'],
+                    defaults={
+                        'language': template_data['language'],
+                        'category': template_data['category'],
+                        'status': template_data['status'],
+                        'message_template': template_data['message_template'],
+                        'created_at': timezone.now()
+                    }
+                )
+                templates_synced += 1
             
-            response = requests.get(url, headers=self.headers, params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                templates_synced = 0
-                
-                # Process template data
-                if 'data' in data and 'data_points' in data['data']:
-                    for template_data in data['data']['data_points']:
-                        template_id = template_data.get('template_id')
-                        if template_id:
-                            # Create or update template
-                            template, created = WhatsAppTemplate.objects.get_or_create(
-                                template_id=template_id,
-                                defaults={
-                                    'name': f'Template_{template_id}',
-                                    'language': 'en',
-                                    'category': 'MARKETING',
-                                    'status': 'APPROVED',
-                                    'created_at': timezone.now()
-                                }
-                            )
-                            templates_synced += 1
-                
-                return {'success': True, 'count': templates_synced}
-            else:
-                return {'success': False, 'error': f'API Error: {response.status_code}'}
+            return {'success': True, 'count': templates_synced}
                 
         except Exception as e:
             return {'success': False, 'error': str(e)}

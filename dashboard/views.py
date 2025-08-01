@@ -3169,3 +3169,34 @@ def tata_sync_panel(request):
         'page_title': 'TATA Data Sync Panel'
     }
     return render(request, 'dashboard/tata_sync_panel.html', context)
+
+@login_required
+def get_tata_templates(request):
+    """Get all TATA templates from database"""
+    try:
+        templates = WhatsAppTemplate.objects.all().values(
+            'id', 'name', 'language', 'category', 'status', 'created_at'
+        )
+        return JsonResponse({
+            'success': True,
+            'templates': list(templates),
+            'count': templates.count()
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def get_all_messages(request):
+    """Get all WhatsApp messages from database"""
+    try:
+        messages = WhatsAppMessage.objects.all().values(
+            'id', 'phone_number', 'message_content', 'status', 'created_at'
+        ).order_by('-created_at')[:100]
+        
+        return JsonResponse({
+            'success': True,
+            'messages': list(messages),
+            'count': messages.count()
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
