@@ -14,7 +14,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,crm-1z7t.onrender.com').split(',')
 
 # TATA Telephony API Settings
 TATA_API_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIzMTE2MDAiLCJjciI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9jbG91ZHBob25lLnRhdGF0ZWxlc2VydmljZXMuY29tL3Rva2VuL2dlbmVyYXRlIiwiaWF0IjoxNzUwNjY5Nzc3LCJleHAiOjIwNTA2Njk3NzcsIm5iZiI6MTc1MDY2OTc3NywianRpIjoiV2MzVnEzV1ljQjFpQTZoMCJ9.JNf5voDlLNCcK_ybN9iFgGhwDHKQ6XisdTPcYkvqovg"
