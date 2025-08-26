@@ -211,9 +211,14 @@ function displayConversationsList() {
     
     Object.keys(conversations).forEach(phone => {
         const messages = conversations[phone];
+        if (!messages || messages.length === 0) return;
+        
         const lastMessage = messages[messages.length - 1];
-        const messagePreview = lastMessage.text.substring(0, 50) + (lastMessage.text.length > 50 ? '...' : '');
-        const messageTime = new Date(lastMessage.timestamp * 1000).toLocaleTimeString();
+        if (!lastMessage) return;
+        
+        const messageText = lastMessage.message_content || lastMessage.text || 'No message';
+        const messagePreview = messageText.substring(0, 50) + (messageText.length > 50 ? '...' : '');
+        const messageTime = lastMessage.timestamp ? new Date(lastMessage.timestamp * 1000).toLocaleTimeString() : 'Unknown time';
         
         const item = $(`
             <div class="conversation-item" data-phone="${phone}">
@@ -253,12 +258,15 @@ function displayMessages(phone) {
     if (!conversations[phone]) return;
     
     conversations[phone].forEach(msg => {
-        const messageTime = new Date(msg.timestamp * 1000).toLocaleString();
+        if (!msg) return;
+        
+        const messageTime = msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleString() : 'Unknown time';
         const messageClass = msg.type === 'incoming' ? 'incoming' : 'outgoing';
+        const messageText = msg.message_content || msg.text || 'No message';
         
         const msgDiv = $(`
             <div class="message ${messageClass}">
-                <div>${msg.text}</div>
+                <div>${messageText}</div>
                 <div class="message-time">${messageTime}</div>
             </div>
         `);

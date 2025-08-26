@@ -23,58 +23,115 @@ class TATASync:
         return results
     
     def sync_templates(self):
-        """Create sample WhatsApp templates for real estate"""
+        """Sync WhatsApp templates from TATA API"""
         try:
-            sample_templates = [
-                {
-                    'name': 'welcome_message',
-                    'stage': 'stage_1_landing',
-                    'message_template': 'Hello {name}, welcome to Bop Realty! We are excited to help you find your dream property.'
-                },
-                {
-                    'name': 'property_inquiry',
-                    'stage': 'stage_2_interested',
-                    'message_template': 'Hi {name}, thank you for your interest in {project_name}. Our team will contact you shortly.'
-                },
-                {
-                    'name': 'site_visit_reminder',
-                    'stage': 'stage_5_site_visit',
-                    'message_template': 'Hi {name}, reminder for your site visit to {project_name} on {date} at {time}.'
-                }
+            # Try different TATA API endpoints for templates
+            possible_endpoints = [
+                f"{self.base_url}/v1/templates",
+                f"{self.base_url}/templates",
+                f"{self.base_url}/whatsapp/templates",
+                f"{self.base_url}/api/v1/templates"
             ]
             
             templates_synced = 0
-            for template_data in sample_templates:
-                template, created = WhatsAppTemplate.objects.get_or_create(
-                    stage=template_data['stage'],
-                    defaults={
-                        'name': template_data['name'],
-                        'message_template': template_data['message_template'],
-                        'is_active': True
-                    }
-                )
-                if created:
-                    templates_synced += 1
+            last_error = None
             
-            return {'success': True, 'count': templates_synced}
+            for url in possible_endpoints:
+                try:
+                    response = requests.get(url, headers=self.headers, timeout=10)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        # Process TATA templates response
+                        templates_data = data.get('data', data.get('templates', []))
+                        if isinstance(templates_data, list):
+                            for template_data in templates_data:
+                                template_name = template_data.get('name', 'Unknown')
+                                template_status = template_data.get('status', 'PENDING')
+                                
+                                # Get template body
+                                template_body = ''
+                                if 'components' in template_data:
+                                    for component in template_data['components']:
+                                        if component.get('type') == 'BODY':
+                                            template_body = component.get('text', '')
+                                            break
+                                else:
+                                    template_body = template_data.get('body', template_data.get('message', ''))
+                                
+                                # Use name as unique identifier since stage has unique constraint
+                                template, created = WhatsAppTemplate.objects.get_or_create(
+                                    name=template_name,
+                                    defaults={
+                                        'stage': f'stage_{template_name.lower().replace(" ", "_")}',
+                                        'message_template': template_body,
+                                        'is_active': template_status == 'APPROVED'
+                                    }
+                                )
+                                
+                                # Update existing template
+                                if not created:
+                                    template.message_template = template_body
+                                    template.is_active = template_status == 'APPROVED'
+                                    template.save()
+                                
+                                if created:
+                                    templates_synced += 1
+                        
+                        return {'success': True, 'count': templates_synced}
+                    
+                    last_error = f'{response.status_code} - {response.text}'
+                    
+                except requests.exceptions.RequestException as e:
+                    last_error = str(e)
+                    continue
+            
+            # If no endpoint worked, just return webhook status
+            webhook_messages = WhatsAppMessage.objects.count()
+            return {
+                'success': True, 
+                'count': 0,
+                'message': f'TATA API not accessible. Webhook active with {webhook_messages} total messages.'
+            }
                 
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
     def sync_messages(self):
-        """Sync messages from webhook data or conversation history"""
-        # Since TATA doesn't provide a direct API to fetch all messages,
-        # we'll work with the webhook data that's already being received
+        """Check actual message status in database"""
         try:
-            # Get recent messages from our database to check sync status
+            # Count all messages in database
+            total_messages = WhatsAppMessage.objects.count()
             recent_messages = WhatsAppMessage.objects.filter(
                 created_at__gte=timezone.now() - timedelta(days=7)
             ).count()
             
+            # Check if webhook is configured
+            webhook_status = "Webhook configured at /webhook/"
+            
+            # If no messages exist, explain why
+            if total_messages == 0:
+                explanation = (
+                    "No messages found because:\n"
+                    "1. Webhook URL not configured in TATA panel\n"
+                    "2. No WhatsApp messages sent to +919355421616\n"
+                    "3. TATA API endpoints not accessible\n\n"
+                    "To receive messages:\n"
+                    "• Configure webhook: https://crm-1z7t.onrender.com/webhook/\n"
+                    "• Send test WhatsApp to +919355421616"
+                )
+                
+                return {
+                    'success': True,
+                    'count': 0,
+                    'message': explanation
+                }
+            
             return {
                 'success': True, 
-                'message': f'Webhook active - {recent_messages} messages in last 7 days',
-                'count': recent_messages
+                'message': f'Database has {total_messages} total messages, {recent_messages} in last 7 days. {webhook_status}',
+                'count': total_messages
             }
             
         except Exception as e:

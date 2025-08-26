@@ -1,0 +1,501 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}WhatsApp Campaigns - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.campaign-card { border-left: 4px solid #10b981; }
+.error-card { border-left: 4px solid #ef4444; }
+.warning-card { border-left: 4px solid #f59e0b; }
+.success-card { border-left: 4px solid #10b981; }
+.media-preview { max-width: 200px; max-height: 150px; object-fit: cover; }
+.status-badge { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+.template-variables { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px; font-family: monospace; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">WhatsApp Campaigns</h1>
+            <p class="text-muted">Send template messages to IVR leads via Tata Omni</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#campaignModal">
+                <i class="fas fa-paper-plane me-2"></i>New Campaign
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Sent Today</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_sent_today }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Failed Today</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_failed_today }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">This Month</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_sent_month }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Rate Limit</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">100k/24h</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-tachometer-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Results -->
+    <div id="campaignResults" class="mb-4" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">Campaign Results</h6>
+            </div>
+            <div class="card-body" id="resultsContent">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Messages -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Recent Messages</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="messagesTable">
+                    <thead>
+                        <tr>
+                            <th>Lead</th>
+                            <th>Phone</th>
+                            <th>Template</th>
+                            <th>Status</th>
+                            <th>Sent At</th>
+                            <th>Message ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for message in recent_messages %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'view_lead' message.lead.id %}">{{ message.lead.name }}</a>
+                            </td>
+                            <td>{{ message.phone_number|slice:"-4:" }}XXXX</td>
+                            <td>{{ message.template.name|default:"Manual" }}</td>
+                            <td>
+                                {% if message.status == 'sent' %}
+                                    <span class="badge badge-success">Sent</span>
+                                {% elif message.status == 'delivered' %}
+                                    <span class="badge badge-info">Delivered</span>
+                                {% elif message.status == 'read' %}
+                                    <span class="badge badge-primary">Read</span>
+                                {% elif message.status == 'failed' %}
+                                    <span class="badge badge-danger">Failed</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ message.status|title }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ message.sent_at|date:"M d, Y H:i"|default:"-" }}</td>
+                            <td><small>{{ message.message_id|default:"-" }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No messages found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Campaign Modal -->
+<div class="modal fade" id="campaignModal" tabindex="-1" aria-labelledby="campaignModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="campaignModalLabel">Create WhatsApp Campaign</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="campaignForm">
+                <div class="modal-body">
+                    <!-- Project Selection -->
+                    <div class="mb-3">
+                        <label for="projects" class="form-label">Target Projects</label>
+                        <select class="form-select" id="projects" name="projects" multiple>
+                            {% for project in projects %}
+                            <option value="{{ project.name }}">{{ project.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Select projects to target IVR leads from. Leave empty for all projects.</div>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="fromDate" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="fromDate" name="from_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="toDate" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="toDate" name="to_date" required>
+                        </div>
+                    </div>
+
+                    <!-- Template Configuration -->
+                    <div class="mb-3">
+                        <label for="templateName" class="form-label">Template Name</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="templateName" name="template_name" 
+                                   placeholder="e.g., bop_realty_project_intro" required>
+                            <button class="btn btn-outline-secondary" type="button" id="validateTemplate">Validate</button>
+                        </div>
+                        <div class="form-text">Template must exist and be approved in Tata Omnichannel</div>
+                        <div id="templateValidation" class="mt-2"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="language" class="form-label">Language</label>
+                        <select class="form-select" id="language" name="language">
+                            <option value="en">English</option>
+                            <option value="hi">Hindi</option>
+                        </select>
+                    </div>
+
+                    <!-- Template Variables Info -->
+                    <div class="mb-3">
+                        <label class="form-label">Template Variables</label>
+                        <div class="template-variables">
+                            <strong>Auto-populated variables:</strong><br>
+                            {{1}} = Lead Name<br>
+                            {{2}} = Project Name<br>
+                            {{3}} = Deep Link (per-lead tracking URL)
+                        </div>
+                        <div class="form-text text-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Button variables are NOT supported. Use body variables for dynamic URLs.
+                        </div>
+                    </div>
+
+                    <!-- Media Header (Optional) -->
+                    <div class="mb-3">
+                        <label for="headerMediaUrl" class="form-label">Header Media URL (Optional)</label>
+                        <div class="input-group">
+                            <input type="url" class="form-control" id="headerMediaUrl" name="header_media_url" 
+                                   placeholder="https://cdn.example.com/brochure.jpg">
+                            <button class="btn btn-outline-secondary" type="button" id="validateMedia">Validate</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="headerMediaType" class="form-label">Media Type</label>
+                        <select class="form-select" id="headerMediaType" name="header_media_type">
+                            <option value="">No Media</option>
+                            <option value="image">Image (JPG, PNG - Max 5MB)</option>
+                            <option value="video">Video (MP4, 3GP - Max 16MB)</option>
+                            <option value="document">Document (PDF - Max 100MB)</option>
+                        </select>
+                    </div>
+
+                    <div id="mediaValidation" class="mb-3"></div>
+
+                    <!-- Campaign Options -->
+                    <div class="mb-3">
+                        <label for="limit" class="form-label">Message Limit</label>
+                        <input type="number" class="form-control" id="limit" name="limit" value="100" min="1" max="1000">
+                        <div class="form-text">Maximum number of messages to send (1-1000)</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dryRun" name="dry_run" checked>
+                            <label class="form-check-label" for="dryRun">
+                                Dry Run (Preview only, don't send messages)
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Preview Button -->
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-info" id="previewCampaign">
+                            <i class="fas fa-eye me-2"></i>Preview Leads
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="runCampaign">
+                        <i class="fas fa-paper-plane me-2"></i>Run Campaign
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Set default dates (last 30 days)
+    const today = new Date();
+    const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    $('#toDate').val(today.toISOString().split('T')[0]);
+    $('#fromDate').val(lastMonth.toISOString().split('T')[0]);
+
+    // Template validation
+    $('#validateTemplate').click(function() {
+        const templateName = $('#templateName').val().trim();
+        const language = $('#language').val();
+        
+        if (!templateName) {
+            showValidationResult('templateValidation', false, 'Template name required');
+            return;
+        }
+        
+        $.ajax({
+            url: '{% url "template_validator" %}',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+                'Content-Type': 'application/json'
+            },
+            data: JSON.stringify({
+                template_name: templateName,
+                language: language
+            }),
+            success: function(response) {
+                showValidationResult('templateValidation', response.valid, 
+                    response.valid ? 'Template validated successfully' : response.error);
+            },
+            error: function() {
+                showValidationResult('templateValidation', false, 'Validation failed');
+            }
+        });
+    });
+
+    // Media validation
+    $('#validateMedia').click(function() {
+        const mediaUrl = $('#headerMediaUrl').val().trim();
+        const mediaType = $('#headerMediaType').val();
+        
+        if (!mediaUrl) {
+            showValidationResult('mediaValidation', false, 'Media URL required');
+            return;
+        }
+        
+        if (!mediaType) {
+            showValidationResult('mediaValidation', false, 'Media type required');
+            return;
+        }
+        
+        $.ajax({
+            url: '{% url "media_validator" %}',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+                'Content-Type': 'application/json'
+            },
+            data: JSON.stringify({
+                media_url: mediaUrl,
+                media_type: mediaType
+            }),
+            success: function(response) {
+                if (response.valid) {
+                    const info = response.media_info;
+                    const message = `Media validated: ${info.content_type}, ${info.size_mb.toFixed(1)}MB`;
+                    showValidationResult('mediaValidation', true, message);
+                } else {
+                    showValidationResult('mediaValidation', false, response.error);
+                }
+            },
+            error: function() {
+                showValidationResult('mediaValidation', false, 'Media validation failed');
+            }
+        });
+    });
+
+    // Preview campaign
+    $('#previewCampaign').click(function() {
+        const formData = new FormData($('#campaignForm')[0]);
+        const params = new URLSearchParams();
+        
+        // Get selected projects
+        $('#projects option:selected').each(function() {
+            params.append('projects', $(this).val());
+        });
+        
+        params.append('from_date', $('#fromDate').val());
+        params.append('to_date', $('#toDate').val());
+        params.append('limit', $('#limit').val());
+        
+        window.open('{% url "campaign_preview" %}?' + params.toString(), '_blank');
+    });
+
+    // Run campaign
+    $('#campaignForm').submit(function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            projects: $('#projects').val() || [],
+            from_date: $('#fromDate').val(),
+            to_date: $('#toDate').val(),
+            template_name: $('#templateName').val().trim(),
+            language: $('#language').val(),
+            header_media_url: $('#headerMediaUrl').val().trim(),
+            header_media_type: $('#headerMediaType').val(),
+            dry_run: $('#dryRun').is(':checked'),
+            limit: parseInt($('#limit').val())
+        };
+        
+        $('#runCampaign').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Running...');
+        
+        $.ajax({
+            url: '{% url "run_whatsapp_campaign" %}',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+                'Content-Type': 'application/json'
+            },
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    showCampaignResults(response.results);
+                    $('#campaignModal').modal('hide');
+                } else {
+                    alert('Campaign failed: ' + response.error);
+                }
+            },
+            error: function() {
+                alert('Campaign execution failed');
+            },
+            complete: function() {
+                $('#runCampaign').prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i>Run Campaign');
+            }
+        });
+    });
+
+    function showValidationResult(containerId, isValid, message) {
+        const container = $('#' + containerId);
+        const alertClass = isValid ? 'alert-success' : 'alert-danger';
+        const icon = isValid ? 'fa-check-circle' : 'fa-exclamation-triangle';
+        
+        container.html(`
+            <div class="alert ${alertClass} alert-sm">
+                <i class="fas ${icon} me-2"></i>${message}
+            </div>
+        `);
+    }
+
+    function showCampaignResults(results) {
+        const resultsHtml = `
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">${results.total_leads}</h5>
+                            <p class="card-text">Total Leads</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">${results.valid_leads}</h5>
+                            <p class="card-text">Valid Leads</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">${results.sent_count}</h5>
+                            <p class="card-text">Messages Sent</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-danger">${results.failed_count}</h5>
+                            <p class="card-text">Failed</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ${results.errors.length > 0 ? `
+                <div class="mt-3">
+                    <h6>Errors:</h6>
+                    <ul class="list-group">
+                        ${results.errors.map(error => `<li class="list-group-item list-group-item-danger">${error}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        `;
+        
+        $('#resultsContent').html(resultsHtml);
+        $('#campaignResults').show();
+        
+        // Scroll to results
+        $('html, body').animate({
+            scrollTop: $('#campaignResults').offset().top - 100
+        }, 500);
+    }
+});
+</script>
+{% endblock %}

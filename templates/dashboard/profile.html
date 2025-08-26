@@ -531,21 +531,26 @@
                             </form>
                         </div>
                         <div class="col-md-6">
-                            <h6 class="mb-3">Leave Balance</h6>
-                            <div class="row mb-4">
-                                <div class="col-6">
-                                    <div class="text-center p-3 bg-light rounded">
-                                        <h4 class="text-primary">12</h4>
-                                        <small>Annual Leave</small>
+                            <h6 class="mb-3">Leave Balance (Current Year)</h6>
+                            {% if team_member %}
+                                <div class="row mb-4">
+                                    {% for leave_type, balance in team_member.leave_balance.items %}
+                                    <div class="col-6 mb-2">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <h4 class="text-primary">{{ balance.remaining }}</h4>
+                                            <small>{{ leave_type|title|cut:"_" }}</small>
+                                            <div class="progress mt-2" style="height: 4px;">
+                                                <div class="progress-bar" style="width: {% widthratio balance.remaining balance.allowed 100 %}%"></div>
+                                            </div>
+                                        </div>
                                     </div>
+                                    {% endfor %}
                                 </div>
-                                <div class="col-6">
-                                    <div class="text-center p-3 bg-light rounded">
-                                        <h4 class="text-success">8</h4>
-                                        <small>Sick Leave</small>
-                                    </div>
+                            {% else %}
+                                <div class="text-center text-muted mb-4">
+                                    <p>Leave balance information not available</p>
                                 </div>
-                            </div>
+                            {% endif %}
                             
                             <h6 class="mb-3">Recent Applications</h6>
                             <div id="leaveApplications">
@@ -557,51 +562,73 @@
             </div>
         </div>
 
-        <!-- Punch Attendance Section -->
+        <!-- Leave Balance Section -->
         <div class="accordion-item">
-            <h2 class="accordion-header" id="punchHeading">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#punch" aria-expanded="false" aria-controls="punch">
-                    <i class="fas fa-fingerprint me-3"></i>
-                    Punch Attendance
+            <h2 class="accordion-header" id="leaveBalanceHeading">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#leaveBalance" aria-expanded="false" aria-controls="leaveBalance">
+                    <i class="fas fa-calendar-check me-3"></i>
+                    Leave & Comp-Off Balance
                 </button>
             </h2>
-            <div id="punch" class="accordion-collapse collapse" aria-labelledby="punchHeading" data-bs-parent="#profileAccordion">
+            <div id="leaveBalance" class="accordion-collapse collapse" aria-labelledby="leaveBalanceHeading" data-bs-parent="#profileAccordion">
                 <div class="accordion-body">
-                    <div class="text-center">
-                        <h5 class="mb-4">Today's Attendance</h5>
-                        <div class="mb-4">
-                            <div class="h4" id="currentDateTime"></div>
-                            <div class="text-muted" id="currentDate"></div>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <button class="punch-button" id="punchButton" onclick="punchAttendance()">
-                                <div>
-                                    <i class="fas fa-fingerprint fa-2x mb-2"></i>
-                                    <div id="punchText">PUNCH IN</div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Leave Balance</h6>
+                            {% if team_member %}
+                                {% for leave_type, balance in team_member.leave_balance.items %}
+                                <div class="row mb-3">
+                                    <div class="col-8">
+                                        <strong>{{ leave_type|title|cut:"_" }}</strong>
+                                    </div>
+                                    <div class="col-4 text-end">
+                                        <span class="badge bg-primary">{{ balance.remaining }}/{{ balance.allowed }}</span>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar" style="width: {% widthratio balance.remaining balance.allowed 100 %}%"></div>
+                                        </div>
+                                        <small class="text-muted">Used: {{ balance.used }} days</small>
+                                    </div>
                                 </div>
-                            </button>
-                        </div>
-                        
-                        <div class="row text-center">
-                            <div class="col-6">
-                                <div class="p-3 bg-light rounded">
-                                    <h5 id="punchInDisplay">--:--</h5>
-                                    <small class="text-muted">Check In</small>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-info-circle"></i>
+                                    <p>Leave balance not available</p>
                                 </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="p-3 bg-light rounded">
-                                    <h5 id="punchOutDisplay">--:--</h5>
-                                    <small class="text-muted">Check Out</small>
-                                </div>
-                            </div>
+                            {% endif %}
                         </div>
-                        
-                        <div class="mt-4">
-                            <div class="p-3 bg-light rounded">
-                                <h6>Working Hours: <span id="workingHours">0h 0m</span></h6>
-                            </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Comp-Off Balance</h6>
+                            {% if team_member %}
+                                {% with compoff=team_member.compoff_balance %}
+                                <div class="text-center p-4 bg-light rounded">
+                                    <h3 class="text-success mb-1">{{ compoff.remaining }}</h3>
+                                    <small class="text-muted">Available Comp-Offs</small>
+                                    <hr>
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <div class="text-info">
+                                                <strong>{{ compoff.earned }}</strong>
+                                                <br><small>Earned</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="text-warning">
+                                                <strong>{{ compoff.used }}</strong>
+                                                <br><small>Used</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endwith %}
+                            {% else %}
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-info-circle"></i>
+                                    <p>Comp-off balance not available</p>
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -654,6 +681,7 @@ let punchOutTime = null;
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     updateDateTime();
+    loadAttendanceData();
     loadAttendanceCalendar();
     loadHolidays();
     loadPayslipRequests();
@@ -662,6 +690,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update time every second
     setInterval(updateDateTime, 1000);
+    
+    // Load attendance data for calendar
+    function loadAttendanceData() {
+        fetch(`/api/attendance-data/${currentYear}/${currentMonth + 1}/`)
+            .then(response => response.json())
+            .then(data => {
+                window.attendanceData = data.attendance || {};
+                loadAttendanceCalendar();
+            })
+            .catch(error => {
+                console.error('Error loading attendance data:', error);
+                window.attendanceData = {};
+            });
+    }
     
     // Payslip reason change handler
     document.getElementById('payslip_reason').addEventListener('change', function() {
@@ -761,13 +803,10 @@ function loadAttendanceCalendar() {
 }
 
 function getAttendanceStatus(day) {
-    // Mock attendance data - replace with actual API call
-    const mockData = {
-        1: 'present', 2: 'present', 3: 'absent', 4: 'present', 5: 'present',
-        8: 'present', 9: 'present', 10: 'leave', 11: 'present', 12: 'present',
-        15: 'present', 16: 'absent', 17: 'present', 18: 'present', 19: 'present'
-    };
-    return mockData[day] || null;
+    // Get actual attendance data from server
+    const attendanceData = window.attendanceData || {};
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return attendanceData[dateKey] || null;
 }
 
 function updateMonthlySummary() {
@@ -799,33 +838,40 @@ function changeMonth(direction) {
 }
 
 function checkTodayAttendance() {
-    // Check if already punched in today (mock data)
-    const today = new Date().toDateString();
-    const savedPunchIn = localStorage.getItem(`punchIn_${today}`);
-    const savedPunchOut = localStorage.getItem(`punchOut_${today}`);
+    // Load actual attendance data from server
+    const today = new Date().toISOString().split('T')[0];
     
-    if (savedPunchIn) {
-        isPunchedIn = true;
-        punchInTime = new Date(savedPunchIn);
-        document.getElementById('punchInDisplay').textContent = punchInTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
-        document.getElementById('checkInTime').textContent = punchInTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
-        document.getElementById('todayStatus').className = 'status-badge status-present';
-        document.getElementById('todayStatus').textContent = 'Punched In';
-        
-        if (savedPunchOut) {
-            punchOutTime = new Date(savedPunchOut);
-            document.getElementById('punchOutDisplay').textContent = punchOutTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
-            document.getElementById('checkOutTime').textContent = punchOutTime.toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute: '2-digit'});
-            document.getElementById('punchText').textContent = 'PUNCHED OUT';
-            document.getElementById('punchButton').classList.add('punched');
-            isPunchedIn = false;
-        } else {
-            document.getElementById('punchText').textContent = 'PUNCH OUT';
-            document.getElementById('punchButton').classList.add('punched');
-        }
-        
-        updateWorkingHours();
-    }
+    fetch(`/api/attendance/${today}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.attendance) {
+                const attendance = data.attendance;
+                
+                if (attendance.check_in_time) {
+                    document.getElementById('checkInTime').textContent = attendance.check_in_time;
+                    document.getElementById('todayStatus').className = 'status-badge status-present';
+                    document.getElementById('todayStatus').textContent = attendance.status_display;
+                }
+                
+                if (attendance.check_out_time) {
+                    document.getElementById('checkOutTime').textContent = attendance.check_out_time;
+                }
+                
+                if (attendance.working_hours) {
+                    const hours = Math.floor(attendance.working_hours);
+                    const minutes = Math.floor((attendance.working_hours - hours) * 60);
+                    document.getElementById('workingHours').textContent = `${hours}h ${minutes}m`;
+                }
+            } else {
+                document.getElementById('todayStatus').className = 'status-badge status-absent';
+                document.getElementById('todayStatus').textContent = 'Not Marked';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading attendance:', error);
+            document.getElementById('todayStatus').className = 'status-badge status-absent';
+            document.getElementById('todayStatus').textContent = 'Error Loading';
+        });
 }
 
 function punchAttendance() {
@@ -875,113 +921,133 @@ function updateWorkingHours() {
 }
 
 function loadHolidays() {
-    // Mock holiday data
-    const holidays = [
-        { name: 'New Year', date: '2024-01-01', type: 'public' },
-        { name: 'Independence Day', date: '2024-08-15', type: 'public' },
-        { name: 'Gandhi Jayanti', date: '2024-10-02', type: 'public' },
-        { name: 'Diwali', date: '2024-11-12', type: 'festival' }
-    ];
-    
-    const holidaysList = document.getElementById('holidaysList');
-    holidaysList.innerHTML = '';
-    
-    holidays.forEach(holiday => {
-        const holidayCard = document.createElement('div');
-        holidayCard.className = 'holiday-card';
-        holidayCard.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1">${holiday.name}</h6>
-                    <small class="text-muted">${new Date(holiday.date).toLocaleDateString()}</small>
-                </div>
-                <span class="badge bg-primary">${holiday.type}</span>
-            </div>
-        `;
-        holidaysList.appendChild(holidayCard);
-    });
-    
-    // Load events
-    const events = [
-        { name: 'Team Meeting', date: '2024-01-15', type: 'meeting' },
-        { name: 'Annual Party', date: '2024-12-25', type: 'celebration' }
-    ];
-    
-    const eventsList = document.getElementById('eventsList');
-    eventsList.innerHTML = '';
-    
-    events.forEach(event => {
-        const eventCard = document.createElement('div');
-        eventCard.className = 'holiday-card';
-        eventCard.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1">${event.name}</h6>
-                    <small class="text-muted">${new Date(event.date).toLocaleDateString()}</small>
-                </div>
-                <span class="badge bg-success">${event.type}</span>
-            </div>
-        `;
-        eventsList.appendChild(eventCard);
-    });
+    // Load actual holidays and events from server
+    fetch('/api/holidays-events/')
+        .then(response => response.json())
+        .then(data => {
+            const holidaysList = document.getElementById('holidaysList');
+            const eventsList = document.getElementById('eventsList');
+            
+            holidaysList.innerHTML = '';
+            eventsList.innerHTML = '';
+            
+            // Load holidays
+            if (data.holidays && data.holidays.length > 0) {
+                data.holidays.forEach(holiday => {
+                    const holidayCard = document.createElement('div');
+                    holidayCard.className = 'holiday-card';
+                    holidayCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${holiday.name}</h6>
+                                <small class="text-muted">${new Date(holiday.date).toLocaleDateString()}</small>
+                            </div>
+                            <span class="badge bg-primary">${holiday.type}</span>
+                        </div>
+                    `;
+                    holidaysList.appendChild(holidayCard);
+                });
+            } else {
+                holidaysList.innerHTML = '<div class="text-muted text-center">No upcoming holidays</div>';
+            }
+            
+            // Load events
+            if (data.events && data.events.length > 0) {
+                data.events.forEach(event => {
+                    const eventCard = document.createElement('div');
+                    eventCard.className = 'holiday-card';
+                    eventCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${event.name}</h6>
+                                <small class="text-muted">${new Date(event.date).toLocaleDateString()}</small>
+                            </div>
+                            <span class="badge bg-success">${event.type}</span>
+                        </div>
+                    `;
+                    eventsList.appendChild(eventCard);
+                });
+            } else {
+                eventsList.innerHTML = '<div class="text-muted text-center">No upcoming events</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading holidays/events:', error);
+            document.getElementById('holidaysList').innerHTML = '<div class="text-danger text-center">Error loading holidays</div>';
+            document.getElementById('eventsList').innerHTML = '<div class="text-danger text-center">Error loading events</div>';
+        });
 }
 
 function loadPayslipRequests() {
-    // Mock payslip requests
-    const requests = [
-        // { month: '2023-12', reason: 'Loan Application', status: 'approved', date: '2024-01-05' },
-        { month: '2023-11', reason: 'Income Proof', status: 'pending', date: '2024-01-03' }
-    ];
-    
-    const requestsList = document.getElementById('payslipRequests');
-    requestsList.innerHTML = '';
-    
-    requests.forEach(request => {
-        const statusClass = request.status === 'approved' ? 'success' : 
-                           request.status === 'pending' ? 'warning' : 'danger';
-        
-        const requestCard = document.createElement('div');
-        requestCard.className = 'holiday-card';
-        requestCard.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1">${request.month}</h6>
-                    <small class="text-muted">${request.reason}</small>
-                </div>
-                <span class="badge bg-${statusClass}">${request.status}</span>
-            </div>
-        `;
-        requestsList.appendChild(requestCard);
-    });
+    // Load actual payslip requests from server
+    fetch('/api/payslip-requests/')
+        .then(response => response.json())
+        .then(data => {
+            const requestsList = document.getElementById('payslipRequests');
+            requestsList.innerHTML = '';
+            
+            if (data.requests && data.requests.length > 0) {
+                data.requests.forEach(request => {
+                    const statusClass = request.status === 'approved' ? 'success' : 
+                                       request.status === 'pending' ? 'warning' : 'danger';
+                    
+                    const requestCard = document.createElement('div');
+                    requestCard.className = 'holiday-card';
+                    requestCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${request.month}</h6>
+                                <small class="text-muted">${request.reason}</small>
+                            </div>
+                            <span class="badge bg-${statusClass}">${request.status}</span>
+                        </div>
+                    `;
+                    requestsList.appendChild(requestCard);
+                });
+            } else {
+                requestsList.innerHTML = '<div class="text-muted text-center">No payslip requests found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading payslip requests:', error);
+            requestsList.innerHTML = '<div class="text-danger text-center">Error loading requests</div>';
+        });
 }
 
 function loadLeaveApplications() {
-    // Mock leave applications
-    const applications = [
-        { type: 'Sick Leave', from: '2024-01-10', to: '2024-01-12', status: 'approved' },
-        { type: 'Casual Leave', from: '2024-01-20', to: '2024-01-20', status: 'pending' }
-    ];
-    
-    const applicationsList = document.getElementById('leaveApplications');
-    applicationsList.innerHTML = '';
-    
-    applications.forEach(app => {
-        const statusClass = app.status === 'approved' ? 'success' : 
-                           app.status === 'pending' ? 'warning' : 'danger';
-        
-        const appCard = document.createElement('div');
-        appCard.className = 'holiday-card';
-        appCard.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1">${app.type}</h6>
-                    <small class="text-muted">${app.from} to ${app.to}</small>
-                </div>
-                <span class="badge bg-${statusClass}">${app.status}</span>
-            </div>
-        `;
-        applicationsList.appendChild(appCard);
-    });
+    // Load actual leave applications from server
+    fetch('/api/leave-applications/')
+        .then(response => response.json())
+        .then(data => {
+            const applicationsList = document.getElementById('leaveApplications');
+            applicationsList.innerHTML = '';
+            
+            if (data.applications && data.applications.length > 0) {
+                data.applications.forEach(app => {
+                    const statusClass = app.status === 'approved' ? 'success' : 
+                                       app.status === 'pending' ? 'warning' : 'danger';
+                    
+                    const appCard = document.createElement('div');
+                    appCard.className = 'holiday-card';
+                    appCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${app.leave_type}</h6>
+                                <small class="text-muted">${app.from_date} to ${app.to_date}</small>
+                            </div>
+                            <span class="badge bg-${statusClass}">${app.status}</span>
+                        </div>
+                    `;
+                    applicationsList.appendChild(appCard);
+                });
+            } else {
+                applicationsList.innerHTML = '<div class="text-muted text-center">No leave applications found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading leave applications:', error);
+            applicationsList.innerHTML = '<div class="text-danger text-center">Error loading applications</div>';
+        });
 }
 
 function submitPayslipRequest(e) {

@@ -223,42 +223,31 @@ function hideLoading() {
 }
 
 function loadRecentMessages() {
-    fetch('{% url "get_tata_conversations" %}')
+    fetch('{% url "get_all_messages" %}')
     .then(response => response.json())
     .then(data => {
-        if (data.success && data.conversations) {
+        if (data.success && data.messages) {
             let html = '';
-            let messageCount = 0;
             
-            // Get recent messages from all conversations
-            for (const [phone, messages] of Object.entries(data.conversations)) {
-                if (messageCount >= 10) break; // Limit to 10 recent messages
+            data.messages.forEach(msg => {
+                const statusBadge = msg.status === 'received' ? 
+                    '<span class="badge bg-success">Received</span>' : 
+                    '<span class="badge bg-primary">Sent</span>';
                 
-                const recentMessages = messages.slice(-3); // Last 3 messages per conversation
+                const time = new Date(msg.created_at).toLocaleString();
+                const truncatedMessage = msg.message_content.length > 50 ? 
+                    msg.message_content.substring(0, 50) + '...' : msg.message_content;
                 
-                recentMessages.forEach(msg => {
-                    if (messageCount >= 10) return;
-                    
-                    const statusBadge = msg.type === 'incoming' ? 
-                        '<span class="badge bg-success">Received</span>' : 
-                        '<span class="badge bg-primary">Sent</span>';
-                    
-                    const time = new Date(msg.timestamp * 1000).toLocaleString();
-                    const truncatedMessage = msg.text.length > 50 ? 
-                        msg.text.substring(0, 50) + '...' : msg.text;
-                    
-                    html += `
-                        <tr>
-                            <td>${phone}</td>
-                            <td>${truncatedMessage}</td>
-                            <td>${statusBadge}</td>
-                            <td>${time}</td>
-                            <td><a href="/leads/?search=${phone}" class="btn btn-sm btn-outline-primary">View Lead</a></td>
-                        </tr>
-                    `;
-                    messageCount++;
-                });
-            }
+                html += `
+                    <tr>
+                        <td>${msg.phone_number}</td>
+                        <td>${truncatedMessage}</td>
+                        <td>${statusBadge}</td>
+                        <td>${time}</td>
+                        <td><a href="/leads/?search=${msg.phone_number}" class="btn btn-sm btn-outline-primary">View Lead</a></td>
+                    </tr>
+                `;
+            });
             
             if (html === '') {
                 html = '<tr><td colspan="5" class="text-center text-muted">No recent messages found</td></tr>';

@@ -7,6 +7,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import Q, Count, Sum, Avg, F, fields, ExpressionWrapper
+from django.db import models
 from django.db.models.functions import TruncMonth, TruncDate
 from django.utils import timezone
 from django.core.paginator import Paginator
@@ -14,7 +15,8 @@ from datetime import datetime, timedelta
 from .models import (Project, ProjectImage, Lead, TeamMember, Meeting, Earning, 
                      Task, TaskStage, TaskCategory, CalendarEvent, Notification, 
                      Attendance, LeadNote, IVRCallLog, LeadStage, WhatsAppTemplate, 
-                     Client, ProjectUnit, MarketingExpense, WhatsAppMessage)
+                     Client, ProjectUnit, MarketingExpense, WhatsAppMessage, 
+                     LeaveType, LeaveApplication, CompOffRequest)
 from .tata_sync import TATASync
 import json
 from urllib.parse import urlencode
@@ -785,8 +787,25 @@ def profile(request):
         except Exception as e:
             messages.error(request, f'Error updating profile: {str(e)}')
     
+    # Get current month attendance data
+    current_month = timezone.now().month
+    current_year = timezone.now().year
+    
+    attendance_data = {}
+    if team_member:
+        attendance_records = Attendance.objects.filter(
+            employee=request.user,
+            date__year=current_year,
+            date__month=current_month
+        )
+        
+        for record in attendance_records:
+            date_key = record.date.strftime('%Y-%m-%d')
+            attendance_data[date_key] = record.status
+    
     context = {
         'team_member': team_member,
+        'attendance_data': attendance_data,
     }
     
     return render(request, 'dashboard/profile.html', context)
@@ -1141,11 +1160,21 @@ def delete_event(request, event_id):
         'error': 'Invalid request method.'
     })
 
-# Task Management Views
+# Enhanced Task Management Views
+@login_required
+def tasks_enhanced(request):
+    """Enhanced task view with hierarchy"""
+    return redirect('tasks') + '?enhanced=true'
+
 @login_required
 def tasks(request):
-    """View for task management dashboard"""
-    tasks = Task.objects.all().prefetch_related('assigned_to', 'category').select_related('stage', 'project', 'lead')
+    """View for enhanced task management dashboard with hierarchy"""
+    # Get all tasks with hierarchy support
+    tasks = Task.objects.all().prefetch_related('assigned_to', 'category', 'subtasks').select_related('stage', 'project', 'lead', 'parent_task')
+    
+    # Check if enhanced view is requested
+    enhanced = request.GET.get('enhanced', 'false') == 'true'
+    
     stages = TaskStage.objects.all().order_by('order')
     categories = TaskCategory.objects.all()
     projects = Project.objects.filter(is_active=True)
@@ -1159,9 +1188,11 @@ def tasks(request):
         'projects': projects,
         'leads': leads,
         'team_members': team_members,
+        'enhanced': enhanced,
     }
     
-    return render(request, 'dashboard/tasks.html', context)
+    template = 'dashboard/tasks_enhanced.html' if enhanced else 'dashboard/tasks.html'
+    return render(request, template, context)
 
 @login_required
 def task_categories(request):
@@ -1181,7 +1212,7 @@ def task_categories(request):
 
 @login_required
 def add_task(request):
-    """View for adding a new task"""
+    """View for adding a new task with hierarchy support"""
     if request.method == 'POST':
         try:
             title = request.POST.get('title')
@@ -1189,7 +1220,12 @@ def add_task(request):
             category_id = request.POST.get('category')
             stage_id = request.POST.get('stage')
             priority = request.POST.get('priority', 'medium')
+            parent_task_id = request.POST.get('parent_task')
             due_date_str = request.POST.get('due_date')
+            due_time_str = request.POST.get('due_time')
+            event_date_str = request.POST.get('event_date')
+            venue = request.POST.get('venue', '')
+            location = request.POST.get('location', '')
             project_id = request.POST.get('project')
             lead_id = request.POST.get('lead')
             assigned_to = request.POST.getlist('assigned_to')
@@ -1200,8 +1236,19 @@ def add_task(request):
                 description=description,
                 stage_id=stage_id,
                 priority=priority,
+                venue=venue,
+                location=location,
                 created_by=request.user,
             )
+            
+            # Set parent task if specified
+            if parent_task_id:
+                parent_task = Task.objects.get(id=parent_task_id)
+                task.parent_task = parent_task
+                # Set order for subtask
+                task.order = parent_task.subtasks.count()
+                # Set original stage for tracking
+                task.original_stage = parent_task.stage
             
             # Set optional fields
             if category_id:
@@ -1209,6 +1256,12 @@ def add_task(request):
             
             if due_date_str:
                 task.due_date = due_date_str
+                
+            if due_time_str:
+                task.due_time = due_time_str
+                
+            if event_date_str:
+                task.event_date = event_date_str
                 
             if project_id:
                 task.project_id = project_id
@@ -1223,6 +1276,11 @@ def add_task(request):
                 task.assigned_to.add(*assigned_to)
             
             messages.success(request, 'Task created successfully!')
+            
+            # Redirect back to enhanced view if it was used
+            enhanced = request.POST.get('enhanced', 'false')
+            if enhanced == 'true':
+                return redirect('tasks') + '?enhanced=true'
             return redirect('tasks')
             
         except Exception as e:
@@ -1305,7 +1363,6 @@ def task_detail(request, task_id):
     """AJAX view for getting task details"""
     task = get_object_or_404(Task, id=task_id)
     
-    # Build HTML for task details
     assignees_list = ", ".join([user.get_full_name() for user in task.assigned_to.all()])
     
     priority_classes = {
@@ -1343,10 +1400,6 @@ def task_detail(request, task_id):
             <td>{task.due_date.strftime("%d %b %Y") if task.due_date else "Not set"}</td>
         </tr>
         <tr>
-            <th>Assigned To:</th>
-            <td>{assignees_list or "Not assigned"}</td>
-        </tr>
-        <tr>
             <th>Created By:</th>
             <td>{task.created_by.get_full_name()}</td>
         </tr>
@@ -1358,12 +1411,27 @@ def task_detail(request, task_id):
     
     {f'<p><strong>Related Project:</strong> {task.project.name}</p>' if task.project else ''}
     {f'<p><strong>Related Lead:</strong> {task.lead.name}</p>' if task.lead else ''}
+    {f'<p><strong>Venue:</strong> {task.venue}</p>' if task.venue else ''}
+    {f'<p><strong>Location:</strong> {task.location}</p>' if task.location else ''}
     """
+    
+    # Prepare assigned users data
+    assigned_users = []
+    for user in task.assigned_to.all():
+        assigned_users.append({
+            'id': user.id,
+            'name': user.get_full_name(),
+            'initials': f"{user.first_name[0] if user.first_name else ''}{user.last_name[0] if user.last_name else ''}"
+        })
     
     return JsonResponse({
         'success': True,
         'title': task.title,
-        'html': html
+        'html': html,
+        'task': {
+            'id': task.id,
+            'assigned_users': assigned_users
+        }
     })
 
 @login_required
@@ -2212,18 +2280,105 @@ def add_client(request):
 
 @login_required
 def tata_calls(request):
-    """TATA IVR calls view"""
-    calls = IVRCallLog.objects.all().order_by('-call_date')
-    context = {'calls': calls}
+    """TATA calls view with API integration"""
+    try:
+        from .tata_calls_api import TATACallsAPI
+        
+        # Get filter parameters
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        call_type = request.GET.get('call_type', '')
+        
+        # Initialize TATA API
+        tata_api = TATACallsAPI()
+        
+        # Fetch call records from TATA API
+        api_calls = tata_api.get_call_records(from_date, to_date)
+        
+        # Get active calls
+        active_calls = tata_api.get_active_calls()
+        
+        # Get analytics
+        analytics = tata_api.get_call_analytics(from_date, to_date)
+        
+        # Get WhatsApp messages
+        whatsapp_messages = tata_api.get_whatsapp_messages()
+        
+    except Exception as e:
+        # Fallback if API fails
+        api_calls = {'success': False, 'error': str(e)}
+        active_calls = {'success': False, 'error': str(e)}
+        analytics = {'success': False, 'error': str(e)}
+        whatsapp_messages = {'success': False, 'error': str(e)}
+    
+    # Local call logs for comparison
+    calls = IVRCallLog.objects.all().order_by('-start_stamp')
+    paginator = Paginator(calls, 25)
+    page_number = request.GET.get('page')
+    call_logs = paginator.get_page(page_number)
+    
+    context = {
+        'call_logs': call_logs,
+        'api_calls': api_calls,
+        'active_calls': active_calls,
+        'analytics': analytics,
+        'whatsapp_messages': whatsapp_messages,
+        'from_date': from_date,
+        'to_date': to_date,
+        'call_type': call_type
+    }
     return render(request, 'dashboard/tata_calls.html', context)
 
 @login_required
 def sync_tata_calls(request):
-    """Sync TATA IVR calls"""
+    """Create test call records for demo"""
     if request.method == 'POST':
-        # Add sync logic here
-        messages.success(request, 'Calls synced successfully!')
-        return JsonResponse({'success': True})
+        try:
+            import uuid
+            from datetime import timedelta
+            
+            # Create test calls based on your TATA CDR data
+            test_calls = [
+                {'+918882443789': '+919654444333'},
+                {'+919910625762': '+919654444333'},
+                {'+911206074502': '+919654444333'},
+                {'+917971303544': '+919654444359'},
+                {'+911409307733': '+917290001132'}
+            ]
+            
+            created_count = 0
+            for i, call_data in enumerate(test_calls):
+                caller, destination = list(call_data.items())[0]
+                
+                call_log, created = IVRCallLog.objects.get_or_create(
+                    uuid=f'test_call_{i}',
+                    defaults={
+                        'call_to_number': destination,
+                        'caller_id_number': caller,
+                        'call_id': f'test_{i}',
+                        'start_stamp': timezone.now() - timedelta(hours=i),
+                        'duration': 30 + (i * 15),
+                        'status': 'answered',
+                        'raw_data': {'test_data': True, 'from_tata_cdr': True},
+                        'billing_circle': 'Delhi',
+                        'customer_no_with_prefix': caller
+                    }
+                )
+                
+                if created:
+                    call_log.associate_with_lead()
+                    created_count += 1
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Created {created_count} test call records from TATA CDR data'
+            })
+                
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
     
     return JsonResponse({'success': False, 'error': 'Invalid request'})
 
@@ -2290,67 +2445,120 @@ def send_tata_reply(request):
 
 @csrf_exempt
 def tata_webhook(request):
-    """Enhanced webhook endpoint for TATA messages"""
+    """Handle incoming webhooks from TATA WhatsApp Business API"""
     if request.method == 'POST':
         try:
-            import json
-            payload = json.loads(request.body)
+            data = json.loads(request.body)
             
-            # Handle WhatsApp messages
-            if 'messages' in payload:
-                msg = payload['messages']
-                phone = msg['from']
-                text = msg.get('text', {}).get('body', '')
-                timestamp = msg['timestamp']
-                msg_id = msg['id']
-                
-                # Store message in database
-                WhatsAppMessage.objects.create(
-                    phone_number=phone,
-                    message_content=text,
-                    message_id=msg_id,
-                    status='received'
-                )
-                
-                # Try to link to existing lead or create new one
-                lead = Lead.objects.filter(phone=phone).first()
-                if not lead:
-                    # Get contact name from payload if available
-                    contact_name = "Unknown"
-                    if 'contacts' in payload and payload['contacts']:
-                        contact_name = payload['contacts'][0].get('profile', {}).get('name', f"WhatsApp Lead {phone}")
-                    
-                    lead = Lead.objects.create(
-                        name=contact_name,
-                        phone=phone,
-                        source='whatsapp',
-                        notes=f"First WhatsApp message: {text}"
-                    )
-                
-                # Add note to lead
-                LeadNote.objects.create(
-                    lead=lead,
-                    note=f"WhatsApp message received: {text}",
-                    call_type='whatsapp',
-                    created_by_id=1  # Admin user
-                )
+            # Process TATA webhook data
+            if 'entry' in data:
+                for entry in data['entry']:
+                    if 'changes' in entry:
+                        for change in entry['changes']:
+                            if change.get('field') == 'messages':
+                                value = change.get('value', {})
+                                
+                                # Process incoming messages
+                                if 'messages' in value:
+                                    for message in value['messages']:
+                                        process_incoming_message(message, value)
+                                
+                                # Process message status updates
+                                if 'statuses' in value:
+                                    for status in value['statuses']:
+                                        process_message_status(status)
             
-            # Handle status updates (sent, delivered, read, failed)
-            if 'statuses' in payload:
-                for status in payload['statuses']:
-                    msg_id = status['id']
-                    status_type = status['status']
-                    
-                    # Update message status in database
-                    WhatsAppMessage.objects.filter(message_id=msg_id).update(
-                        status=status_type
-                    )
-            
-            return JsonResponse({'status': 'ok'})
+            return JsonResponse({'status': 'success'})
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            print(f"Webhook error: {e}")
+            return JsonResponse({'status': 'error', 'message': str(e)})
     
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
+    return JsonResponse({'status': 'method not allowed'})
+
+def process_incoming_message(message_data, value_data):
+    """Process incoming WhatsApp message"""
+    try:
+        message_id = message_data.get('id')
+        from_number = message_data.get('from')
+        timestamp = message_data.get('timestamp')
+        
+        # Extract message content based on type
+        message_content = ''
+        message_type = message_data.get('type')
+        
+        if message_type == 'text':
+            message_content = message_data.get('text', {}).get('body', '')
+        elif message_type == 'image':
+            message_content = f"[Image] {message_data.get('image', {}).get('caption', 'Image received')}"
+        elif message_type == 'document':
+            message_content = f"[Document] {message_data.get('document', {}).get('filename', 'Document received')}"
+        elif message_type == 'audio':
+            message_content = "[Audio] Voice message received"
+        elif message_type == 'video':
+            message_content = f"[Video] {message_data.get('video', {}).get('caption', 'Video received')}"
+        else:
+            message_content = f"[{message_type.upper()}] Message received"
+        
+        # Get or create lead
+        lead, created = Lead.objects.get_or_create(
+            phone=from_number,
+            defaults={
+                'name': f'WhatsApp Lead {from_number}',
+                'email': f'{from_number}@whatsapp.temp',
+                'source': 'whatsapp'
+            }
+        )
+        
+        # Create message record
+        WhatsAppMessage.objects.get_or_create(
+            message_id=message_id,
+            defaults={
+                'lead': lead,
+                'phone_number': from_number,
+                'message_content': message_content,
+                'status': 'received',
+                'api_response': message_data
+            }
+        )
+        
+        # Create lead note
+        LeadNote.objects.create(
+            lead=lead,
+            call_type='whatsapp',
+            note=f"WhatsApp message: {message_content}",
+            created_by_id=1  # System user
+        )
+        
+    except Exception as e:
+        print(f"Error processing incoming message: {e}")
+
+def process_message_status(status_data):
+    """Process message status updates"""
+    try:
+        message_id = status_data.get('id')
+        status = status_data.get('status')
+        timestamp = status_data.get('timestamp')
+        
+        # Update message status
+        try:
+            message = WhatsAppMessage.objects.get(message_id=message_id)
+            message.status = status
+            
+            if status == 'delivered':
+                message.delivered_at = timezone.now()
+            elif status == 'read':
+                message.read_at = timezone.now()
+            elif status == 'failed':
+                message.failed_at = timezone.now()
+                message.failure_reason = status_data.get('errors', [{}])[0].get('title', 'Unknown error')
+            
+            message.save()
+            
+        except WhatsAppMessage.DoesNotExist:
+            pass  # Message not found, ignore status update
+            
+    except Exception as e:
+        print(f"Error processing message status: {e}")
 
 @login_required
 def ivr_webhooks(request):
@@ -3125,6 +3333,174 @@ def view_leads(request):
     """Alternative view for leads - redirects to main leads view"""
     return redirect('leads')
 
+# TATA API view functions
+
+@login_required
+def fetch_tata_calls(request):
+    """AJAX endpoint to fetch TATA call records"""
+    try:
+        from .tata_calls_api import TATACallsAPI
+        
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        page = int(request.GET.get('page', 1))
+        limit = int(request.GET.get('limit', 50))
+        
+        tata_api = TATACallsAPI()
+        result = tata_api.get_call_records(from_date, to_date, page, limit)
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def fetch_active_calls(request):
+    """AJAX endpoint to fetch active calls"""
+    try:
+        from .tata_calls_api import TATACallsAPI
+        
+        tata_api = TATACallsAPI()
+        result = tata_api.get_active_calls()
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def fetch_call_analytics(request):
+    """AJAX endpoint to fetch call analytics"""
+    try:
+        from .tata_calls_api import TATACallsAPI
+        
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        
+        tata_api = TATACallsAPI()
+        result = tata_api.get_call_analytics(from_date, to_date)
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def schedule_tata_call(request):
+    """AJAX endpoint to schedule a call via TATA API"""
+    if request.method == 'POST':
+        try:
+            from .tata_calls_api import TATACallsAPI
+            
+            data = json.loads(request.body)
+            
+            customer_name = data.get('customer_name')
+            customer_number = data.get('customer_number')
+            schedule_datetime = data.get('schedule_datetime')
+            notes = data.get('notes', '')
+            assigned_to = data.get('assigned_to', '')
+            duration = int(data.get('duration', 30))
+            
+            tata_api = TATACallsAPI()
+            result = tata_api.create_schedule_call(
+                customer_name, customer_number, schedule_datetime, 
+                notes, assigned_to, duration
+            )
+            
+            return JsonResponse(result)
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@login_required
+def get_recording_status(request, batch_id):
+    """Get recording upload status"""
+    try:
+        from .tata_calls_api import TATACallsAPI
+        
+        tata_api = TATACallsAPI()
+        result = tata_api.get_recording_status(batch_id)
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def export_call_data(request):
+    """Export call data to CSV"""
+    try:
+        import csv
+        from django.http import HttpResponse
+        from datetime import datetime
+        from .tata_calls_api import TATACallsAPI
+        
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        
+        tata_api = TATACallsAPI()
+        call_data = tata_api.get_call_records(from_date, to_date, limit=1000)
+        
+        if not call_data.get('success', True):
+            return JsonResponse(call_data)
+        
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="tata_calls_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
+        writer = csv.writer(response)
+        
+        # Write header
+        writer.writerow([
+            'Call ID', 'Date', 'Time', 'Customer Number', 'Agent Name', 
+            'Direction', 'Status', 'Duration (sec)', 'Recording URL'
+        ])
+        
+        # Write data
+        for call in call_data.get('results', []):
+            writer.writerow([
+                call.get('call_id', ''),
+                call.get('date', ''),
+                call.get('time', ''),
+                call.get('client_number', ''),
+                call.get('agent_name', ''),
+                call.get('direction', ''),
+                call.get('status', ''),
+                call.get('call_duration', 0),
+                call.get('recording_url', '')
+            ])
+        
+        return response
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def tata_call_dashboard(request):
+    """Real-time call dashboard"""
+    try:
+        from .tata_calls_api import TATACallsAPI
+        from datetime import datetime
+        
+        tata_api = TATACallsAPI()
+        
+        # Get current data
+        active_calls = tata_api.get_active_calls()
+        analytics = tata_api.get_call_analytics()
+        
+        dashboard_data = {
+            'active_calls': active_calls,
+            'analytics': analytics,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return JsonResponse(dashboard_data)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
 # TATA Sync API endpoints
 @login_required
 def sync_tata_templates(request):
@@ -3209,3 +3585,378 @@ def get_all_messages(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def move_task(request):
+    """Move task to different stage via drag and drop with hierarchy support"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            task_id = data.get('task_id')
+            new_stage_id = data.get('stage_id')
+            new_parent_id = data.get('parent_id')  # For hierarchy changes
+            new_order = data.get('order', 0)
+            
+            task = get_object_or_404(Task, id=task_id)
+            
+            # Update stage if provided
+            if new_stage_id:
+                new_stage = get_object_or_404(TaskStage, id=new_stage_id)
+                task.stage = new_stage
+            
+            # Update parent if provided
+            if new_parent_id:
+                if new_parent_id == 'null' or new_parent_id == '':
+                    task.parent_task = None
+                else:
+                    new_parent = get_object_or_404(Task, id=new_parent_id)
+                    task.parent_task = new_parent
+            
+            # Update order
+            task.order = new_order
+            task.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Task moved successfully'
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@login_required
+def update_task_assignees(request):
+    """Update task assignees via AJAX with hierarchy propagation"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            task_id = data.get('task_id')
+            assignee_ids = data.get('assignee_ids', [])
+            action = data.get('action', 'replace')
+            propagate_to_subtasks = data.get('propagate_to_subtasks', False)
+            
+            task = get_object_or_404(Task, id=task_id)
+            
+            def update_assignees(target_task):
+                if action == 'add':
+                    if assignee_ids:
+                        target_task.assigned_to.add(*assignee_ids)
+                elif action == 'remove':
+                    if assignee_ids:
+                        target_task.assigned_to.remove(*assignee_ids)
+                else:
+                    target_task.assigned_to.clear()
+                    if assignee_ids:
+                        target_task.assigned_to.add(*assignee_ids)
+            
+            # Update main task
+            update_assignees(task)
+            
+            # Propagate to subtasks if requested
+            if propagate_to_subtasks and task.is_parent_task:
+                for subtask in task.subtasks.all():
+                    update_assignees(subtask)
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Assignees updated successfully'
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def handle_ivr_webhook(request):
+    """Handle IVR webhooks from TATA"""
+    try:
+        if request.method == 'GET':
+            return JsonResponse({'status': 'webhook_active', 'timestamp': timezone.now().isoformat()})
+        
+        data = json.loads(request.body) if request.body else request.GET.dict()
+        
+        call_log = IVRCallLog.objects.create(
+            uuid=data.get('uuid', ''),
+            call_to_number=data.get('call_to_number', ''),
+            caller_id_number=data.get('caller_id_number', ''),
+            call_id=data.get('call_id', ''),
+            start_stamp=timezone.now(),
+            duration=int(data.get('duration', 0)),
+            status=data.get('status', 'received'),
+            raw_data=data
+        )
+        
+        call_log.associate_with_lead()
+        
+        return JsonResponse({'status': 'success', 'call_id': call_log.id})
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+# Profile API endpoints
+@login_required
+def api_attendance_data(request, year, month):
+    """API endpoint for attendance data"""
+    try:
+        attendance_records = Attendance.objects.filter(
+            employee=request.user,
+            date__year=year,
+            date__month=month
+        )
+        
+        attendance_data = {}
+        for record in attendance_records:
+            date_key = record.date.strftime('%Y-%m-%d')
+            attendance_data[date_key] = record.status
+        
+        return JsonResponse({
+            'success': True,
+            'attendance': attendance_data
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def api_attendance_today(request, date):
+    """API endpoint for today's attendance"""
+    try:
+        attendance = Attendance.objects.filter(
+            employee=request.user,
+            date=date
+        ).first()
+        
+        if attendance:
+            return JsonResponse({
+                'success': True,
+                'attendance': {
+                    'check_in_time': attendance.check_in_time.strftime('%H:%M') if attendance.check_in_time else None,
+                    'check_out_time': attendance.check_out_time.strftime('%H:%M') if attendance.check_out_time else None,
+                    'status_display': attendance.get_status_display(),
+                    'working_hours': attendance.working_hours or 0
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'attendance': None
+            })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def api_holidays_events(request):
+    """API endpoint for holidays and events"""
+    try:
+        from datetime import date, timedelta
+        
+        # Get upcoming holidays (mock data - replace with actual model)
+        today = date.today()
+        end_date = today + timedelta(days=90)
+        
+        holidays = [
+            {'name': 'Republic Day', 'date': '2024-01-26', 'type': 'National'},
+            {'name': 'Holi', 'date': '2024-03-13', 'type': 'Festival'},
+            {'name': 'Good Friday', 'date': '2024-03-29', 'type': 'Religious'},
+        ]
+        
+        # Get upcoming events from calendar
+        events = CalendarEvent.objects.filter(
+            start_time__date__gte=today,
+            start_time__date__lte=end_date
+        ).values('title', 'start_time', 'event_type')[:5]
+        
+        event_data = []
+        for event in events:
+            event_data.append({
+                'name': event['title'],
+                'date': event['start_time'].strftime('%Y-%m-%d'),
+                'type': event['event_type']
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'holidays': holidays,
+            'events': event_data
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def api_payslip_requests(request):
+    """API endpoint for payslip requests"""
+    try:
+        # Mock data - replace with actual model
+        requests = [
+            {
+                'month': '2024-01',
+                'reason': 'Loan Application',
+                'status': 'approved',
+                'requested_date': '2024-01-15'
+            }
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'requests': requests
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def api_leave_applications(request):
+    """API endpoint for leave applications"""
+    try:
+        applications = LeaveApplication.objects.filter(
+            employee=request.user
+        ).select_related('leave_type').order_by('-created_at')[:10]
+        
+        app_data = []
+        for app in applications:
+            app_data.append({
+                'leave_type': app.leave_type.name,
+                'from_date': app.from_date.strftime('%Y-%m-%d'),
+                'to_date': app.to_date.strftime('%Y-%m-%d'),
+                'status': app.status,
+                'days_requested': app.days_requested
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'applications': app_data
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+# Add subtask creation endpoint
+@login_required
+def add_subtask(request):
+    """Add subtask to parent task"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            parent_task_id = data.get('parent_task_id')
+            title = data.get('title')
+            description = data.get('description', '')
+            priority = data.get('priority', 'medium')
+            assigned_to_ids = data.get('assigned_to', [])
+            
+            parent_task = get_object_or_404(Task, id=parent_task_id)
+            
+            # Create subtask
+            subtask = Task.objects.create(
+                title=title,
+                description=description,
+                parent_task=parent_task,
+                stage=parent_task.stage,  # Inherit parent's stage
+                priority=priority,
+                project=parent_task.project,  # Inherit parent's project
+                lead=parent_task.lead,  # Inherit parent's lead
+                created_by=request.user,
+                order=parent_task.subtasks.count()
+            )
+            
+            # Assign users
+            if assigned_to_ids:
+                subtask.assigned_to.add(*assigned_to_ids)
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Subtask created successfully',
+                'subtask_id': subtask.id
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@login_required
+def toggle_subtask_complete(request, subtask_id):
+    """Toggle subtask completion status"""
+    if request.method == 'POST':
+        try:
+            subtask = get_object_or_404(Task, id=subtask_id, parent_task__isnull=False)
+            
+            if subtask.completed:
+                subtask.completed = False
+                subtask.completed_at = None
+            else:
+                subtask.mark_as_complete()
+            
+            subtask.save()
+            
+            return JsonResponse({
+                'success': True,
+                'completed': subtask.completed,
+                'message': f'Subtask {"completed" if subtask.completed else "reopened"}'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@login_required
+def get_subtask_connections(request):
+    """Get connection data for moved subtasks"""
+    try:
+        # Get all subtasks that have been moved to different stages
+        moved_subtasks = Task.objects.filter(
+            parent_task__isnull=False
+        ).exclude(
+            stage=models.F('parent_task__stage')
+        ).select_related('parent_task', 'stage')
+        
+        connections = []
+        for subtask in moved_subtasks:
+            connections.append({
+                'subtask_id': subtask.id,
+                'parent_id': subtask.parent_task.id,
+                'original_stage': subtask.parent_task.stage.name,
+                'current_stage': subtask.stage.name,
+                'title': subtask.title
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'connections': connections
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def update_task_field(request):
+    """Update a single task field via AJAX"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            task_id = data.get('task_id')
+            field = data.get('field')
+            value = data.get('value')
+            
+            task = get_object_or_404(Task, id=task_id)
+            
+            # Update the specified field
+            if field == 'title':
+                task.title = value
+            elif field == 'description':
+                task.description = value
+            elif field == 'due_date':
+                task.due_date = value if value else None
+            else:
+                return JsonResponse({'success': False, 'error': 'Invalid field'})
+            
+            task.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'{field.title()} updated successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})

@@ -7,123 +7,468 @@
 <style>
     .task-board {
         display: flex;
-        overflow-x: auto;
         gap: 1rem;
-        padding-bottom: 1rem;
-        min-height: calc(100vh - 300px);
+        padding: 0.5rem;
+        height: 90%;
+        overflow-x: auto;
+        overflow-y: hidden;
     }
     
     .task-column {
-        min-width: 320px;
-        max-width: 320px;
+        min-width: 280px;
+        flex: 1;
         background: #f8fafc;
         border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
     }
     
     .task-column-header {
         padding: 1rem;
-        background: #f1f5f9;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
         border-radius: 12px 12px 0 0;
-        border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
     }
     
     .task-column-body {
-        padding: 1rem;
+        padding: 0.75rem;
         overflow-y: auto;
-        max-height: calc(100vh - 360px);
+        flex: 1;
+        min-height: 0;
     }
     
     .task-card {
-        margin-bottom: 1rem;
-        transition: transform 0.2s;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s ease;
+        cursor: grab;
+        position: relative;
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
     .task-card:hover {
-        transform: translateY(-3px);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .task-card.parent-task {
+        border-left: 4px solid #8b5cf6;
+    }
+    
+    .subtasks-container {
+        background: #f8fafc;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    .subtask-item {
+        position: relative;
+    }
+    
+    .subtask-indent {
+        width: 20px;
+        height: 20px;
+        border-left: 2px solid #8b5cf6;
+        border-bottom: 2px solid #8b5cf6;
+        margin-right: 8px;
+        flex-shrink: 0;
+    }
+    
+    .subtask-item {
+        position: relative;
+        margin-left: 10px;
+    }
+    
+    .add-subtask-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        transition: all 0.2s;
+    }
+    
+    .add-subtask-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .subtask-assignees {
+        transition: border-color 0.2s;
+    }
+    
+    .subtask-assignees:hover {
+        border-color: #8b5cf6 !important;
+        background: #f3f4f6;
+    }
+    
+    .assignee-badge {
+        cursor: grab;
+        transition: transform 0.2s;
+    }
+    
+    .assignee-badge:hover {
+        transform: scale(1.05);
+    }
+    
+    .assignee-badge.dragging {
+        opacity: 0.5;
+        cursor: grabbing;
+    }
+    
+    .draggable-avatar {
+        cursor: grab;
+        transition: transform 0.2s;
+    }
+    
+    .draggable-avatar:hover {
+        transform: scale(1.05);
+    }
+    
+    .draggable-avatar.dragging {
+        opacity: 0.5;
+        cursor: grabbing;
+    }
+    
+    .avatar-stack:hover {
+        border-color: #8b5cf6 !important;
+        background: #f9fafb;
+    }
+    
+    .subtask-assignees:hover {
+        border-color: #8b5cf6 !important;
+        background: #f9fafb;
+    }
+    
+    .subtask-item.dragging {
+        opacity: 0.7;
+        transform: rotate(2deg) scale(1.02);
+        z-index: 1000;
+    }
+    
+    /* Completed task styling */
+    .completed-task {
+        opacity: 0.7;
+        position: relative;
+    }
+    
+    .completed-task::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #dc2626;
+        transform: translateY(-50%);
+        z-index: 10;
+    }
+    
+    .completed-task .card-title,
+    .completed-task .card-text {
+        text-decoration: line-through;
+        color: #6b7280;
+    }
+    
+    /* Dotted connection lines for subtasks */
+    .subtask-item::before {
+        content: '';
+        position: absolute;
+        left: -20px;
+        top: 15px;
+        width: 15px;
+        height: 15px;
+        border-left: 2px dotted #8b5cf6;
+        border-bottom: 2px dotted #8b5cf6;
+        border-radius: 0 0 0 8px;
+    }
+    
+    .editable-title:hover,
+    .editable-description:hover,
+    .editable-due-date:hover {
+        background: #f3f4f6;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .editable-title {
+        padding: 2px 4px;
+        transition: background 0.2s;
+    }
+    
+    .editable-description {
+        padding: 4px;
+        transition: background 0.2s;
+        min-height: 20px;
+    }
+    
+    .editable-due-date {
+        padding: 2px;
+        transition: background 0.2s;
+    }
+    
+    .inline-edit-input {
+        border: 2px solid #8b5cf6;
+        border-radius: 4px;
+        padding: 4px;
+        font-size: inherit;
+        font-family: inherit;
+        width: 100%;
+        background: white;
+    }
+    
+    .subtask-toggle {
+        transition: transform 0.2s;
+    }
+    
+    .subtask-toggle.expanded {
+        transform: rotate(90deg);
+    }
+    
+    .subtask-assignees .badge {
+        font-size: 0.6rem;
+    }
+    
+    .connection-line {
+        position: absolute;
+        pointer-events: none;
+        z-index: 1;
+    }
+    
+    .task-card.dragging {
+        opacity: 0.7;
+        transform: rotate(3deg) scale(1.02);
+        cursor: grabbing;
+        z-index: 1000;
+    }
+    
+    .task-column-body.drag-over {
+        background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+        border: 2px dashed #0ea5e9;
     }
     
     .task-priority {
-        width: 4px;
+        width: 5px;
         position: absolute;
         top: 0;
         bottom: 0;
         left: 0;
-        border-radius: 6px 0 0 6px;
+        border-radius: 12px 0 0 12px;
     }
     
-    .priority-urgent { background-color: #ef4444; }
-    .priority-high { background-color: #f97316; }
-    .priority-medium { background-color: #3b82f6; }
-    .priority-low { background-color: #6b7280; }
+    .priority-urgent { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .priority-high { background: linear-gradient(135deg, #f97316, #ea580c); }
+    .priority-medium { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    .priority-low { background: linear-gradient(135deg, #6b7280, #4b5563); }
     
     .task-badge {
         font-size: 0.7rem;
-        padding: 0.15rem 0.5rem;
-        border-radius: 4px;
+        padding: 0.25rem 0.6rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .due-date-warning {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        color: #92400e;
+    }
+    
+    .due-date-overdue {
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        color: #991b1b;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    .avatar-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        align-items: flex-end;
+    }
+    
+    .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid white;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .avatar:hover {
+        transform: scale(1.1);
+        z-index: 10;
+    }
+    
+    .task-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-top: 0.75rem;
+        font-size: 0.75rem;
+    }
+    
+    .team-panel {
+        position: fixed;
+        right: -280px;
+        top: 0;
+        width: 260px;
+        height: 100vh;
+        background: white;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+        transition: right 0.3s ease;
+        z-index: 1050;
+        padding: 0.75rem;
+        overflow-y: auto;
+    }
+    
+    .team-panel.open {
+        right: 0;
+    }
+    
+    .team-member {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #f8fafc;
+        border-radius: 12px;
+        cursor: grab;
+        transition: all 0.2s;
+        border: 2px solid transparent;
+    }
+    
+    .team-member:hover {
+        background: #e2e8f0;
+        transform: translateX(-5px);
+    }
+    
+    .team-member.dragging {
+        opacity: 0.5;
+        transform: rotate(5deg);
+    }
+    
+    .quick-add-btn {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        transition: all 0.3s;
+        z-index: 1000;
+    }
+    
+    .quick-add-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(0,0,0,0.3);
+    }
+    
+    .team-toggle {
+        position: fixed;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border: none;
+        color: white;
+        padding: 0.75rem;
+        border-radius: 12px 0 0 12px;
+        z-index: 1040;
+        transition: all 0.3s;
+    }
+    
+    .team-toggle:hover {
+        transform: translateY(-50%) translateX(-5px);
+    }
+    
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border-radius: 16px 16px 0 0;
+        border: none;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 600;
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #5a67d8, #6b46c1);
+        transform: translateY(-1px);
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-2">
     <div>
-        <h2 class="mb-1">
-            <i class="fas fa-tasks text-primary me-2"></i>Task Manager
-        </h2>
-        <p class="text-muted mb-0">Create, assign and track tasks across your team</p>
+        <h4 class="mb-0">
+            <i class="fas fa-tasks text-primary me-2"></i>Task Board
+        </h4>
+        <small class="text-muted">Drag & drop tasks • Assign team members • Track progress</small>
     </div>
     
-    <!-- Add Task Button -->
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">
-        <i class="fas fa-plus me-2"></i>Add New Task
-    </button>
-</div>
-
-<!-- Task Filter Controls -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-lg-3 col-md-6">
-                <label class="form-label">Filter by Category</label>
-                <select id="categoryFilter" class="form-select">
-                    <option value="">All Categories</option>
-                    {% for category in categories %}
-                        <option value="{{ category.id }}">{{ category.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="col-lg-3 col-md-6">
-                <label class="form-label">Filter by Assignee</label>
-                <select id="assigneeFilter" class="form-select">
-                    <option value="">All Assignees</option>
-                    {% for member in team_members %}
-                        <option value="{{ member.user.id }}">{{ member.user.get_full_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="col-lg-3 col-md-6">
-                <label class="form-label">Filter by Priority</label>
-                <select id="priorityFilter" class="form-select">
-                    <option value="">All Priorities</option>
-                    <option value="urgent">Urgent</option>
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                </select>
-            </div>
-            
-            <div class="col-lg-3 col-md-6">
-                <label class="form-label">Action</label>
-                <div class="d-grid">
-                    <button class="btn btn-outline-secondary" onclick="resetFilters()">
-                        <i class="fas fa-sync-alt me-2"></i>Reset Filters
-                    </button>
-                </div>
-            </div>
-        </div>
+    <!-- Quick Filters -->
+    <div class="d-flex gap-2">
+        <select id="priorityFilter" class="form-select form-select-sm" style="width: auto;">
+            <option value="">All Priorities</option>
+            <option value="urgent">🔴 Urgent</option>
+            <option value="high">🟠 High</option>
+            <option value="medium">🔵 Medium</option>
+            <option value="low">⚪ Low</option>
+        </select>
+        
+        <select id="categoryFilter" class="form-select form-select-sm" style="width: auto;">
+            <option value="">All Categories</option>
+            {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+        
+        <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">
+            <i class="fas fa-sync-alt"></i>
+        </button>
     </div>
 </div>
 
@@ -139,17 +484,38 @@
                 </span>
             </div>
         </div>
-        <div class="task-column-body" id="stage-{{ stage.id }}">
+        <div class="task-column-body" data-stage-id="{{ stage.id }}" ondrop="drop(event)" ondragover="allowDrop(event)">
             {% for task in tasks %}
-                {% if task.stage.id == stage.id %}
-                <div class="card task-card" data-category="{{ task.category.id }}" 
-                     data-priority="{{ task.priority }}" data-task-id="{{ task.id }}">
+                {% if task.stage.id == stage.id and not task.parent_task %}
+                <div class="card task-card {% if task.subtasks.exists %}parent-task{% endif %} {% if task.completed or task.stage.name|lower == 'completed' or task.stage.name|lower == 'done' or task.stage.name|lower == 'review' %}completed-task{% endif %}" 
+                     data-category="{{ task.category.id|default:'' }}" 
+                     data-priority="{{ task.priority }}" 
+                     data-task-id="{{ task.id }}"
+                     data-original-stage="{{ task.stage.id }}"
+                     draggable="true" 
+                     ondragstart="drag(event)"
+                     ondrop="dropOnTask(event, {{ task.id }})"
+                     ondragover="allowDrop(event)">
                     <div class="task-priority priority-{{ task.priority }}"></div>
-                    <div class="card-body p-3">
+                    <div class="card-body p-2">
                         <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="card-title mb-0">{{ task.title }}</h6>
-                            <div class="dropdown">
-                                <button class="btn btn-sm p-0" type="button" data-bs-toggle="dropdown">
+                            <div class="d-flex align-items-center">
+                                {% if task.subtasks.exists %}
+                                <button class="btn btn-sm p-0 me-2 subtask-toggle" onclick="event.stopPropagation(); toggleSubtasks({{ task.id }})" data-task-id="{{ task.id }}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                                {% endif %}
+                                <h6 class="card-title mb-0 editable-title" onclick="event.stopPropagation(); editTitle(this, {{ task.id }})" title="Click to edit">{{ task.title }}</h6>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-primary btn-sm add-subtask-btn" onclick="event.stopPropagation(); quickAddSubtask({{ task.id }})" title="Add Subtask">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); openTaskModal({{ task.id }})" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <div class="dropdown">
+                                <button class="btn btn-sm p-0" type="button" data-bs-toggle="dropdown" onclick="event.stopPropagation()">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -159,6 +525,7 @@
                                     <li><a class="dropdown-item" href="#" onclick="editTask({{ task.id }})">
                                         <i class="fas fa-edit me-2"></i>Edit
                                     </a></li>
+
                                     {% if not task.completed %}
                                     <li><a class="dropdown-item" href="#" onclick="markAsComplete({{ task.id }})">
                                         <i class="fas fa-check me-2"></i>Mark Complete
@@ -169,6 +536,7 @@
                                         <i class="fas fa-trash me-2"></i>Delete
                                     </a></li>
                                 </ul>
+                                </div>
                             </div>
                         </div>
                         
@@ -178,45 +546,111 @@
                         </span>
                         {% endif %}
                         
-                        {% if task.description %}
-                        <p class="card-text text-muted small mb-2">{{ task.description|truncatechars:100 }}</p>
+                        {% if task.subtasks.exists %}
+                        <div class="progress mb-2" style="height: 4px;">
+                            <div class="progress-bar bg-success" style="width: {{ task.completion_percentage }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ task.subtasks.count }} subtask{{ task.subtasks.count|pluralize }} ({{ task.completion_percentage|floatformat:0 }}% complete)</small>
                         {% endif %}
                         
-                        <div class="d-flex justify-content-between align-items-center mt-2">
+                        <p class="card-text text-muted small mb-2 editable-description" onclick="event.stopPropagation(); editDescription(this, {{ task.id }})" title="Click to edit">
+                            {% if task.description %}{{ task.description|truncatechars:80 }}{% else %}<em>Click to add description</em>{% endif %}
+                        </p>
+                        
+                        <div class="task-meta">
                             <div>
                                 {% if task.due_date %}
-                                <small class="text-muted">
-                                    <i class="fas fa-calendar me-1"></i> {{ task.due_date|date:"M d, Y" }}
-                                </small>
+                                    {% now "Y-m-d" as today %}
+                                    {% if task.due_date|date:"Y-m-d" < today %}
+                                        <span class="badge due-date-overdue">
+                                            ⚠️ Overdue
+                                        </span>
+                                    {% elif task.due_date|date:"Y-m-d" == today %}
+                                        <span class="badge due-date-warning">
+                                            🕰️ Due Today
+                                        </span>
+                                    {% else %}
+                                        <small class="text-muted">
+                                            📅 {{ task.due_date|date:"M d" }}
+                                        </small>
+                                    {% endif %}
                                 {% endif %}
                             </div>
-                            <div class="d-flex align-items-center">
-                                {% for user in task.assigned_to.all|slice:":3" %}
-                                <div class="avatar" title="{{ user.get_full_name }}" 
-                                     style="width: 24px; height: 24px; border-radius: 50%; background: #6b7280; color: white; 
-                                            display: inline-flex; align-items: center; justify-content: center; 
-                                            margin-left: -8px; border: 2px solid white; font-size: 8px;">
+                            <div class="avatar-stack" 
+                                 ondrop="dropOnTask(event, {{ task.id }})" 
+                                 ondragover="allowDrop(event)"
+                                 style="min-height: 30px; padding: 2px; border: 1px dashed transparent; border-radius: 4px;">
+                                {% for user in task.assigned_to.all %}
+                                <div class="avatar draggable-avatar" 
+                                     title="{{ user.get_full_name }} - Drag to move" 
+                                     draggable="true"
+                                     ondragstart="dragAssignedUser(event, {{ user.id }}, {{ task.id }})"
+                                     style="background: linear-gradient(135deg, #{{ user.id|add:123|stringformat:'x'|slice:':6' }}, #{{ user.id|add:456|stringformat:'x'|slice:':6' }});">
                                     {{ user.first_name.0 }}{{ user.last_name.0 }}
                                 </div>
+                                {% empty %}
+                                <small class="text-muted">Drop user here</small>
                                 {% endfor %}
-                                {% if task.assigned_to.count > 3 %}
-                                <div class="avatar" title="{{ task.assigned_to.count|add:'-3' }} more" 
-                                     style="width: 24px; height: 24px; border-radius: 50%; background: #8b5cf6; color: white; 
-                                            display: inline-flex; align-items: center; justify-content: center; 
-                                            margin-left: -8px; border: 2px solid white; font-size: 8px;">
-                                    +{{ task.assigned_to.count|add:'-3' }}
-                                </div>
-                                {% endif %}
-                                {% if not task.assigned_to.exists %}
-                                <div class="avatar" title="Not assigned" 
-                                     style="width: 24px; height: 24px; border-radius: 50%; background: #f3f4f6; 
-                                            display: inline-flex; align-items: center; justify-content: center; border: 1px dashed #d1d5db;">
-                                    <i class="fas fa-user-plus" style="font-size: 8px; color: #9ca3af;"></i>
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Subtasks Container -->
+                    {% if task.subtasks.exists %}
+                    <div class="subtasks-container" id="subtasks-{{ task.id }}" style="display: none;">
+                        {% for subtask in task.subtasks.all %}
+                        <div class="subtask-item task-card {% if subtask.completed or subtask.stage.name|lower == 'completed' or subtask.stage.name|lower == 'done' or subtask.stage.name|lower == 'review' %}completed-task{% endif %}" 
+                             data-subtask-id="{{ subtask.id }}" 
+                             data-parent-id="{{ task.id }}"
+                             data-task-id="{{ subtask.id }}"
+                             data-original-stage="{{ subtask.stage.id }}"
+                             draggable="true"
+                             ondragstart="drag(event)"
+                             ondrop="dropOnTask(event, {{ subtask.id }})"
+                             ondragover="allowDrop(event)"
+                             style="margin: 4px 0; background: #fafafa; border: 1px solid #e5e7eb;">
+                            <div class="d-flex align-items-center p-2">
+                                <div class="subtask-indent"></div>
+                                <input type="checkbox" class="form-check-input me-2" {% if subtask.completed %}checked{% endif %} onchange="event.stopPropagation(); toggleSubtaskComplete({{ subtask.id }})">
+                                <div class="flex-grow-1">
+                                    <small class="fw-bold">{{ subtask.title }}</small>
+                                    {% if subtask.stage.id != task.stage.id %}
+                                    <span class="badge bg-info ms-2">{{ subtask.stage.name }}</span>
+                                    {% endif %}
+                                    <div class="subtask-assignees mt-1" 
+                                         ondrop="dropOnSubtask(event, {{ subtask.id }})" 
+                                         ondragover="allowDrop(event)"
+                                         style="min-height: 20px; border: 1px dashed transparent; border-radius: 4px; padding: 2px;">
+                                        {% for user in subtask.assigned_to.all %}
+                                        <span class="badge bg-secondary me-1 assignee-badge" 
+                                              draggable="true" 
+                                              ondragstart="dragAssignee(event, {{ user.id }}, {{ subtask.id }})">
+                                            {{ user.first_name.0 }}{{ user.last_name.0 }}
+                                        </span>
+                                        {% empty %}
+                                        <small class="text-muted">Drop user here</small>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm p-0" type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="#" onclick="editTask({{ subtask.id }})">
+                                            <i class="fas fa-edit me-2"></i>Edit
+                                        </a></li>
+                                        <li><a class="dropdown-item text-danger" href="#" onclick="deleteTask({{ subtask.id }})">
+                                            <i class="fas fa-trash me-2"></i>Delete
+                                        </a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
             {% endfor %}
@@ -224,6 +658,53 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Team Panel -->
+<div class="team-panel" id="teamPanel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">👥 Team Members</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleTeamPanel()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <p class="text-muted small mb-2">Drag team members to tasks to assign them</p>
+    
+    <!-- Unassign Drop Zone -->
+    <div class="unassign-zone mb-3" 
+         ondrop="dropToUnassign(event)" 
+         ondragover="allowDrop(event)"
+         style="padding: 1rem; border: 2px dashed #dc3545; border-radius: 8px; text-align: center; background: #fff5f5; color: #dc3545; font-size: 0.8rem;">
+        🗑️ Drop here to unassign
+    </div>
+    
+    {% for member in team_members %}
+    <div class="team-member" 
+         draggable="true" 
+         ondragstart="dragTeamMember(event, {{ member.user.id }})" 
+         data-user-id="{{ member.user.id }}">
+        <div class="d-flex align-items-center">
+            <div class="avatar me-3" 
+                 style="background: linear-gradient(135deg, #{{ member.user.id|add:123|stringformat:'x'|slice:':6' }}, #{{ member.user.id|add:456|stringformat:'x'|slice:':6' }});">
+                {{ member.user.first_name.0 }}{{ member.user.last_name.0 }}
+            </div>
+            <div>
+                <div class="fw-bold">{{ member.user.get_full_name }}</div>
+                <small class="text-muted">{{ member.get_role_display }}</small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Team Toggle Button -->
+<button class="team-toggle" onclick="toggleTeamPanel()" title="Team Members">
+    <i class="fas fa-users"></i>
+</button>
+
+<!-- Quick Add Button -->
+<button class="quick-add-btn" data-bs-toggle="modal" data-bs-target="#addTaskModal" title="Add Task">
+    <i class="fas fa-plus"></i>
+</button>
 
 <!-- Add Task Modal -->
 <div class="modal fade" id="addTaskModal" tabindex="-1">
@@ -238,78 +719,120 @@
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-12">
-                            <label class="form-label">Task Title *</label>
-                            <input type="text" name="title" class="form-control" required>
+                            <label class="form-label">What needs to be done? *</label>
+                            <input type="text" name="title" class="form-control" placeholder="Enter task title..." required>
+                        </div>
+                        
+                        <div class="col-12" id="parentTaskField" style="display: none;">
+                            <label class="form-label">Parent Task</label>
+                            <select name="parent_task" class="form-select" id="parentTaskSelect">
+                                <option value="">Select parent task...</option>
+                                {% for task in tasks %}
+                                    {% if not task.parent_task %}
+                                        <option value="{{ task.id }}">{{ task.title }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
                         </div>
                         
                         <div class="col-12">
                             <label class="form-label">Description</label>
-                            <textarea name="description" class="form-control" rows="3"></textarea>
+                            <textarea name="description" class="form-control" rows="2" placeholder="Add more details (optional)"></textarea>
                         </div>
                         
                         <div class="col-md-6">
-                            <label class="form-label">Category</label>
-                            <select name="category" class="form-select">
-                                <option value="">Select Category</option>
-                                {% for category in categories %}
-                                    <option value="{{ category.id }}">{{ category.name }}</option>
-                                {% endfor %}
+                            <label class="form-label">Priority</label>
+                            <select name="priority" class="form-select">
+                                <option value="low">⚪ Low</option>
+                                <option value="medium" selected>🔵 Medium</option>
+                                <option value="high">🟠 High</option>
+                                <option value="urgent">🔴 Urgent</option>
                             </select>
                         </div>
                         
                         <div class="col-md-6">
-                            <label class="form-label">Stage *</label>
+                            <label class="form-label">Stage</label>
                             <select name="stage" class="form-select" required>
-                                <option value="">Select Stage</option>
                                 {% for stage in stages %}
-                                    <option value="{{ stage.id }}">{{ stage.name }}</option>
+                                    <option value="{{ stage.id }}" {% if forloop.first %}selected{% endif %}>{{ stage.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         
-                        <div class="col-md-6">
-                            <label class="form-label">Priority *</label>
-                            <select name="priority" class="form-select" required>
-                                <option value="low">Low</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="high">High</option>
-                                <option value="urgent">Urgent</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label">Due Date</label>
-                            <input type="date" name="due_date" class="form-control">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label">Related Project</label>
-                            <select name="project" class="form-select">
-                                <option value="">Select Project</option>
-                                {% for project in projects %}
-                                    <option value="{{ project.id }}">{{ project.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label">Related Lead</label>
-                            <select name="lead" class="form-select">
-                                <option value="">Select Lead</option>
-                                {% for lead in leads %}
-                                    <option value="{{ lead.id }}">{{ lead.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
+                        <!-- Collapsible Advanced Options -->
                         <div class="col-12">
-                            <label class="form-label">Assign To</label>
-                            <select name="assigned_to" class="form-select" multiple>
-                                {% for member in team_members %}
-                                    <option value="{{ member.user.id }}">{{ member.user.get_full_name }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Hold Ctrl/Cmd to select multiple team members</div>
+                            <button type="button" class="btn btn-link p-0 text-decoration-none" data-bs-toggle="collapse" data-bs-target="#advancedOptions">
+                                <i class="fas fa-chevron-down me-1"></i> More Options
+                            </button>
+                        </div>
+                        
+                        <div class="collapse" id="advancedOptions">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Due Date</label>
+                                    <input type="date" name="due_date" class="form-control">
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">Due Time</label>
+                                    <input type="time" name="due_time" class="form-control">
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">Event/Meeting Date & Time</label>
+                                    <input type="datetime-local" name="event_date" class="form-control">
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">Venue</label>
+                                    <input type="text" name="venue" class="form-control" placeholder="Meeting room, office...">
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">Category</label>
+                                    <select name="category" class="form-select">
+                                        <option value="">No Category</option>
+                                        {% for category in categories %}
+                                            <option value="{{ category.id }}">{{ category.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">Location</label>
+                                    <textarea name="location" class="form-control" rows="2" placeholder="Full address or location details"></textarea>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">Related Project</label>
+                                    <select name="project" class="form-select">
+                                        <option value="">No Project</option>
+                                        {% for project in projects %}
+                                            <option value="{{ project.id }}">{{ project.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">Related Lead</label>
+                                    <select name="lead" class="form-select">
+                                        <option value="">No Lead</option>
+                                        {% for lead in leads %}
+                                            <option value="{{ lead.id }}">{{ lead.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">Assign To</label>
+                                    <select name="assigned_to" class="form-select" multiple>
+                                        {% for member in team_members %}
+                                            <option value="{{ member.user.id }}">{{ member.user.get_full_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Hold Ctrl/Cmd to select multiple or drag from team panel</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -330,11 +853,33 @@
                 <h5 class="modal-title" id="taskDetailTitle">Task Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="taskDetailContent">
-                <!-- Content will be loaded dynamically -->
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div id="taskDetailContent">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>👥 Assigned Team</h6>
+                        <div class="assigned-users mb-3" id="assignedUsers" 
+                             ondrop="dropOnTaskModal(event)" 
+                             ondragover="allowDrop(event)"
+                             style="min-height: 100px; border: 2px dashed #e2e8f0; border-radius: 8px; padding: 1rem;">
+                            <!-- Assigned users will be loaded here -->
+                        </div>
+                        
+                        <h6>🗑️ Unassign Zone</h6>
+                        <div class="unassign-modal-zone" 
+                             ondrop="dropToUnassignModal(event)" 
+                             ondragover="allowDrop(event)"
+                             style="padding: 1rem; border: 2px dashed #dc3545; border-radius: 8px; text-align: center; background: #fff5f5; color: #dc3545; font-size: 0.9rem;">
+                            🗑️ Drop here to unassign
+                        </div>
                     </div>
                 </div>
             </div>
@@ -345,6 +890,317 @@
 
 {% block extra_js %}
 <script>
+    // Global variables
+    let draggedTaskId = null;
+    let taskConnections = new Map();
+    
+    // Task Drag and Drop
+    function allowDrop(ev) {
+        ev.preventDefault();
+        if (ev.currentTarget.classList.contains('task-column-body')) {
+            ev.currentTarget.classList.add('drag-over');
+        }
+    }
+    
+    function drag(ev) {
+        draggedTaskId = ev.target.dataset.taskId;
+        ev.dataTransfer.setData("task", draggedTaskId);
+        ev.target.classList.add('dragging');
+    }
+    
+    function drop(ev) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove('drag-over');
+        
+        const taskId = ev.dataTransfer.getData("task");
+        const userId = ev.dataTransfer.getData("user");
+        const moveUserId = ev.dataTransfer.getData("moveUser");
+        const fromTaskId = ev.dataTransfer.getData("fromTask");
+        
+        // Handle task/subtask movement
+        if (taskId && ev.currentTarget.classList.contains('task-column-body')) {
+            const newStageId = ev.currentTarget.dataset.stageId;
+            const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+            
+            if (taskElement) {
+                taskElement.classList.remove('dragging');
+                
+                // For subtasks, move them out of parent container to new stage
+                if (taskElement.classList.contains('subtask-item')) {
+                    // Clone the element to preserve it
+                    const clonedElement = taskElement.cloneNode(true);
+                    
+                    // Remove subtask styling and add moved styling
+                    clonedElement.style.marginLeft = '0';
+                    clonedElement.classList.remove('subtask-item');
+                    clonedElement.classList.add('moved-subtask');
+                    
+                    // Remove completed styling if moving to non-completion stage
+                    const stageColumn = ev.currentTarget.closest('.task-column');
+                    const stageName = stageColumn.querySelector('.task-column-header h5').textContent.toLowerCase();
+                    
+                    if (!['completed', 'done', 'review'].includes(stageName)) {
+                        clonedElement.classList.remove('completed-task');
+                    } else {
+                        clonedElement.classList.add('completed-task');
+                    }
+                    
+                    // Add to new stage column
+                    ev.currentTarget.appendChild(clonedElement);
+                    
+                    // Remove original from subtasks container
+                    taskElement.remove();
+                } else {
+                    // Regular task movement
+                    const stageColumn = ev.currentTarget.closest('.task-column');
+                    const stageName = stageColumn.querySelector('.task-column-header h5').textContent.toLowerCase();
+                    
+                    // Update completion styling based on stage
+                    if (!['completed', 'done', 'review'].includes(stageName)) {
+                        taskElement.classList.remove('completed-task');
+                    } else {
+                        taskElement.classList.add('completed-task');
+                    }
+                    
+                    ev.currentTarget.appendChild(taskElement);
+                }
+                
+                fetch('/ajax/move-task/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        stage_id: newStageId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateConnectionLines();
+                        // Don't reload immediately to see the visual change
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        console.error('Error moving task:', data.error);
+                        location.reload();
+                    }
+                });
+            }
+        }
+        
+        // Handle user assignment from team panel
+        if (userId && ev.currentTarget.classList.contains('task-column-body')) {
+            const taskCard = ev.target.closest('.task-card');
+            if (taskCard) {
+                const targetTaskId = taskCard.dataset.taskId;
+                assignUserToTask(targetTaskId, userId);
+            }
+        }
+        
+        // Handle user movement between tasks
+        if (moveUserId && fromTaskId && ev.currentTarget.classList.contains('task-column-body')) {
+            const taskCard = ev.target.closest('.task-card');
+            if (taskCard) {
+                const targetTaskId = taskCard.dataset.taskId;
+                if (fromTaskId !== targetTaskId) {
+                    moveUserBetweenTasks(fromTaskId, targetTaskId, moveUserId);
+                }
+            }
+        }
+    }
+    
+    // Team Member Drag and Drop
+    function dragTeamMember(ev, userId) {
+        ev.dataTransfer.setData("user", userId);
+        ev.target.classList.add('dragging');
+    }
+    
+    function dropOnTask(ev, taskId) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const userId = ev.dataTransfer.getData("user");
+        const moveUserId = ev.dataTransfer.getData("moveUser");
+        const fromTaskId = ev.dataTransfer.getData("fromTask");
+        
+        if (userId) {
+            assignUserToTask(taskId, userId);
+        } else if (moveUserId && fromTaskId && fromTaskId !== taskId.toString()) {
+            moveUserBetweenTasks(fromTaskId, taskId, moveUserId);
+        }
+    }
+    
+    function dragAssignedUser(ev, userId, taskId) {
+        ev.dataTransfer.setData("moveUser", userId);
+        ev.dataTransfer.setData("fromTask", taskId);
+        ev.target.classList.add('dragging');
+    }
+    
+    function assignUserToTask(taskId, userId) {
+        fetch('/ajax/update-task-assignees/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                task_id: taskId,
+                assignee_ids: [userId],
+                action: 'add'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                console.error('Error assigning user:', data.error);
+            }
+        });
+    }
+    
+    function unassignUserFromTask(taskId, userId) {
+        fetch('/ajax/update-task-assignees/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                task_id: taskId,
+                assignee_ids: [userId],
+                action: 'remove'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                console.error('Error unassigning user:', data.error);
+            }
+        });
+    }
+    
+    function moveUserBetweenTasks(fromTaskId, toTaskId, userId) {
+        fetch('/ajax/update-task-assignees/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                task_id: fromTaskId,
+                assignee_ids: [userId],
+                action: 'remove'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                return assignUserToTask(toTaskId, userId);
+            }
+        });
+    }
+    
+    let currentTaskId = null;
+    
+    function openTaskModal(taskId) {
+        currentTaskId = taskId;
+        const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
+        modal.show();
+        
+        fetch(`/tasks/${taskId}/detail/`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('taskDetailTitle').textContent = data.title;
+                document.getElementById('taskDetailContent').innerHTML = data.html;
+                loadAssignedUsers(taskId);
+            });
+    }
+    
+    function loadAssignedUsers(taskId) {
+        const assignedDiv = document.getElementById('assignedUsers');
+        assignedDiv.innerHTML = '<div class="text-muted">Loading...</div>';
+        
+        fetch(`/tasks/${taskId}/detail/`)
+            .then(response => response.json())
+            .then(data => {
+                const task = data.task;
+                let html = '';
+                if (task && task.assigned_users) {
+                    task.assigned_users.forEach(user => {
+                        html += `
+                            <div class="avatar mb-2" 
+                                 draggable="true"
+                                 ondragstart="dragAssignedUser(event, ${user.id}, ${taskId})"
+                                 title="${user.name} - Drag to move or unassign"
+                                 style="background: linear-gradient(135deg, #${(user.id + 123).toString(16).slice(-6)}, #${(user.id + 456).toString(16).slice(-6)}); margin-right: 0.5rem;">
+                                ${user.initials}
+                            </div>
+                        `;
+                    });
+                }
+                if (!html) {
+                    html = '<div class="text-muted">No one assigned</div>';
+                }
+                assignedDiv.innerHTML = html;
+            });
+    }
+    
+    function dropOnTaskModal(ev) {
+        ev.preventDefault();
+        const userId = ev.dataTransfer.getData("user");
+        if (userId && currentTaskId) {
+            assignUserToTask(currentTaskId, userId);
+        }
+    }
+    
+    function dropToUnassignModal(ev) {
+        ev.preventDefault();
+        const userId = ev.dataTransfer.getData("moveUser");
+        const fromTaskId = ev.dataTransfer.getData("fromTask");
+        
+        if (userId && fromTaskId) {
+            unassignUserFromTask(fromTaskId, userId);
+        }
+    }
+    
+    // Team Panel
+    function toggleTeamPanel() {
+        const panel = document.getElementById('teamPanel');
+        panel.classList.toggle('open');
+    }
+    
+    // Unassign drop zone
+    function dropToUnassign(ev) {
+        ev.preventDefault();
+        const userId = ev.dataTransfer.getData("removeUser");
+        const fromTaskId = ev.dataTransfer.getData("fromTask");
+        
+        if (userId && fromTaskId) {
+            unassignUserFromTask(fromTaskId, userId);
+        }
+    }
+    
+    // Remove drag-over class when dragging leaves
+    document.querySelectorAll('.task-column-body').forEach(column => {
+        column.addEventListener('dragleave', function(e) {
+            if (!this.contains(e.relatedTarget)) {
+                this.classList.remove('drag-over');
+            }
+        });
+    });
+    
+    // Remove dragging class when drag ends
+    document.addEventListener('dragend', function(e) {
+        document.querySelectorAll('.dragging').forEach(el => {
+            el.classList.remove('dragging');
+        });
+        updateConnectionLines();
+    });
+    
     // Task filtering
     function filterTasks() {
         const categoryValue = document.getElementById('categoryFilter').value;
@@ -354,22 +1210,17 @@
         const tasks = document.querySelectorAll('.task-card');
         
         tasks.forEach(task => {
-            // Show all initially
             task.style.display = 'block';
             
-            // Apply Category filter
             if (categoryValue && task.dataset.category !== categoryValue) {
                 task.style.display = 'none';
                 return;
             }
             
-            // Apply Priority filter
             if (priorityValue && task.dataset.priority !== priorityValue) {
                 task.style.display = 'none';
                 return;
             }
-            
-            // TODO: Implement assignee filter (would require additional data attributes)
         });
     }
     
@@ -378,23 +1229,23 @@
         document.getElementById('assigneeFilter').value = '';
         document.getElementById('priorityFilter').value = '';
         
-        const tasks = document.querySelectorAll('.task-card');
-        tasks.forEach(task => {
+        document.querySelectorAll('.task-card').forEach(task => {
             task.style.display = 'block';
         });
     }
     
-    // Add event listeners to filter controls
-    document.getElementById('categoryFilter').addEventListener('change', filterTasks);
-    document.getElementById('priorityFilter').addEventListener('change', filterTasks);
-    document.getElementById('assigneeFilter').addEventListener('change', filterTasks);
+    // Event listeners - check if elements exist
+    const categoryFilter = document.getElementById('categoryFilter');
+    const priorityFilter = document.getElementById('priorityFilter');
+    
+    if (categoryFilter) categoryFilter.addEventListener('change', filterTasks);
+    if (priorityFilter) priorityFilter.addEventListener('change', filterTasks);
     
     // Task actions
     function viewTaskDetails(taskId) {
         const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
         modal.show();
         
-        // Fetch task details via AJAX and populate modal
         fetch(`/tasks/${taskId}/detail/`)
             .then(response => response.json())
             .then(data => {
@@ -411,6 +1262,83 @@
         window.location.href = `/tasks/${taskId}/edit/`;
     }
     
+    // Inline editing functions
+    function editTitle(element, taskId) {
+        const currentText = element.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.className = 'inline-edit-input';
+        
+        element.innerHTML = '';
+        element.appendChild(input);
+        input.focus();
+        input.select();
+        
+        function saveTitle() {
+            const newTitle = input.value.trim();
+            if (newTitle && newTitle !== currentText) {
+                updateTaskField(taskId, 'title', newTitle);
+            } else {
+                element.textContent = currentText;
+            }
+        }
+        
+        input.addEventListener('blur', saveTitle);
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') saveTitle();
+            if (e.key === 'Escape') element.textContent = currentText;
+        });
+    }
+    
+    function editDescription(element, taskId) {
+        const currentText = element.textContent === 'Click to add description' ? '' : element.textContent;
+        const textarea = document.createElement('textarea');
+        textarea.value = currentText;
+        textarea.className = 'inline-edit-input';
+        textarea.rows = 2;
+        
+        element.innerHTML = '';
+        element.appendChild(textarea);
+        textarea.focus();
+        
+        function saveDescription() {
+            const newDesc = textarea.value.trim();
+            updateTaskField(taskId, 'description', newDesc);
+        }
+        
+        textarea.addEventListener('blur', saveDescription);
+        textarea.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) saveDescription();
+            if (e.key === 'Escape') element.innerHTML = currentText || '<em>Click to add description</em>';
+        });
+    }
+    
+    function updateTaskField(taskId, field, value) {
+        fetch('/ajax/update-task-field/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                task_id: taskId,
+                field: field,
+                value: value
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                location.reload();
+            }
+        })
+        .catch(() => location.reload());
+    }
+    
     function markAsComplete(taskId) {
         if (confirm('Are you sure you want to mark this task as complete?')) {
             fetch(`/tasks/${taskId}/complete/`, {
@@ -423,8 +1351,12 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Refresh the page or update the UI
-                    window.location.reload();
+                    // Add completed styling immediately
+                    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+                    if (taskCard) {
+                        taskCard.classList.add('completed-task');
+                    }
+                    setTimeout(() => window.location.reload(), 500);
                 } else {
                     alert('Error: ' + data.error);
                 }
@@ -444,13 +1376,167 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Remove the task card from the DOM
                     document.querySelector(`.task-card[data-task-id="${taskId}"]`).remove();
+                    updateConnectionLines();
                 } else {
                     alert('Error: ' + data.error);
                 }
             });
         }
     }
+    
+    // Subtask Functions
+    function toggleSubtasks(taskId) {
+        const container = document.getElementById(`subtasks-${taskId}`);
+        const toggle = document.querySelector(`[data-task-id="${taskId}"] .subtask-toggle`);
+        
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            toggle.classList.add('expanded');
+        } else {
+            container.style.display = 'none';
+            toggle.classList.remove('expanded');
+        }
+        updateConnectionLines();
+    }
+    
+    function quickAddSubtask(parentTaskId) {
+        const title = prompt('Enter subtask title:');
+        if (!title || title.trim() === '') return;
+        
+        fetch('/ajax/add-subtask/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                parent_task_id: parentTaskId,
+                title: title.trim(),
+                priority: 'medium'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error creating subtask');
+        });
+    }
+    
+    function addSubtask(parentTaskId) {
+        document.getElementById('parentTaskField').style.display = 'block';
+        document.getElementById('parentTaskSelect').value = parentTaskId;
+        const modal = new bootstrap.Modal(document.getElementById('addTaskModal'));
+        modal.show();
+    }
+    
+    // Team member drag to subtask
+    function dropOnSubtask(ev, subtaskId) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const userId = ev.dataTransfer.getData("user");
+        
+        if (userId) {
+            assignUserToTask(subtaskId, userId);
+        }
+    }
+    
+    function dragAssignee(ev, userId, taskId) {
+        ev.stopPropagation();
+        ev.dataTransfer.setData("moveUser", userId);
+        ev.dataTransfer.setData("fromTask", taskId);
+        ev.target.classList.add('dragging');
+    }
+    
+    function dragAssignedUser(ev, userId, taskId) {
+        ev.stopPropagation();
+        ev.dataTransfer.setData("moveUser", userId);
+        ev.dataTransfer.setData("fromTask", taskId);
+        ev.target.classList.add('dragging');
+    }
+    
+    function toggleSubtaskComplete(subtaskId) {
+        fetch(`/tasks/${subtaskId}/complete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add completed styling immediately
+                const subtaskCard = document.querySelector(`[data-subtask-id="${subtaskId}"]`);
+                if (subtaskCard) {
+                    subtaskCard.classList.toggle('completed-task');
+                }
+                setTimeout(() => location.reload(), 500);
+            }
+        });
+    }
+    
+    // Connection Lines
+    function updateConnectionLines() {
+        // Clear existing lines
+        document.querySelectorAll('.connection-line').forEach(line => line.remove());
+        
+        // Draw lines for moved subtasks
+        document.querySelectorAll('.subtask-item').forEach(subtask => {
+            const subtaskId = subtask.dataset.subtaskId;
+            const parentId = subtask.dataset.parentId;
+            const parentCard = document.querySelector(`[data-task-id="${parentId}"]`);
+            const subtaskCard = document.querySelector(`[data-task-id="${subtaskId}"]`);
+            
+            if (subtaskCard && parentCard && subtaskCard !== subtask) {
+                drawConnectionLine(parentCard, subtaskCard);
+            }
+        });
+    }
+    
+    function drawConnectionLine(fromElement, toElement) {
+        const fromRect = fromElement.getBoundingClientRect();
+        const toRect = toElement.getBoundingClientRect();
+        
+        const line = document.createElement('div');
+        line.className = 'connection-line';
+        line.style.position = 'absolute';
+        line.style.left = (fromRect.right - 10) + 'px';
+        line.style.top = (fromRect.top + fromRect.height / 2) + 'px';
+        line.style.width = Math.abs(toRect.left - fromRect.right + 10) + 'px';
+        line.style.height = '2px';
+        line.style.background = '#8b5cf6';
+        line.style.zIndex = '1';
+        
+        document.body.appendChild(line);
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        updateConnectionLines();
+        
+        // Auto-show subtasks if they exist
+        document.querySelectorAll('.subtasks-container').forEach(container => {
+            if (container.children.length > 0) {
+                container.style.display = 'block';
+                const taskId = container.id.replace('subtasks-', '');
+                const toggle = document.querySelector(`[data-task-id="${taskId}"] .subtask-toggle`);
+                if (toggle) toggle.classList.add('expanded');
+            }
+        });
+        
+        // Hide parent task field when modal closes
+        document.getElementById('addTaskModal').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('parentTaskField').style.display = 'none';
+            document.getElementById('parentTaskSelect').value = '';
+        });
+    });
 </script>
 {% endblock %}

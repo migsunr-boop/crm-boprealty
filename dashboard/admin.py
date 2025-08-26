@@ -4,7 +4,8 @@ from .models import (
     TeamMember, Meeting, Earning, Task, TaskStage, TaskCategory, 
     CalendarEvent, Notification, Attendance, IVRCallLog,
     WhatsAppTemplate, WhatsAppMessage, Event, EventRegistration,
-    LeadSource, MarketingExpense, ProjectUnit, Client
+    LeadSource, MarketingExpense, ProjectUnit, Client,
+    LeaveType, LeaveApplication, CompOffRequest
 )
 
 @admin.register(Project)
@@ -277,15 +278,18 @@ class TaskStageAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['title', 'stage', 'priority', 'due_date', 'completed', 'created_by']
-    list_filter = ['stage', 'priority', 'completed', 'due_date', 'category']
+    list_display = ['title', 'parent_task', 'stage', 'priority', 'due_date', 'completed', 'created_by', 'order']
+    list_filter = ['stage', 'priority', 'completed', 'due_date', 'category', 'parent_task']
     search_fields = ['title', 'description']
     filter_horizontal = ['assigned_to']
-    readonly_fields = ['created_at', 'updated_at', 'completed_at']
+    readonly_fields = ['created_at', 'updated_at', 'completed_at', 'is_parent_task', 'completion_percentage', 'get_hierarchy_level']
     
     fieldsets = (
         ('Task Details', {
             'fields': ('title', 'description', 'stage', 'priority', 'category')
+        }),
+        ('Hierarchy', {
+            'fields': ('parent_task', 'order', 'is_parent_task', 'completion_percentage', 'get_hierarchy_level')
         }),
         ('Assignment', {
             'fields': ('assigned_to', 'created_by')
@@ -293,13 +297,30 @@ class TaskAdmin(admin.ModelAdmin):
         ('Related Items', {
             'fields': ('project', 'lead')
         }),
-        ('Dates', {
-            'fields': ('due_date', 'created_at', 'updated_at')
+        ('Dates & Location', {
+            'fields': ('due_date', 'due_time', 'event_date', 'venue', 'location')
         }),
         ('Status', {
             'fields': ('completed', 'completed_at')
         }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
     )
+    
+    def is_parent_task(self, obj):
+        return obj.is_parent_task
+    is_parent_task.boolean = True
+    is_parent_task.short_description = "Has Subtasks"
+    
+    def completion_percentage(self, obj):
+        return f"{obj.completion_percentage:.1f}%"
+    completion_percentage.short_description = "Completion %"
+    
+    def get_hierarchy_level(self, obj):
+        return obj.get_hierarchy_level()
+    get_hierarchy_level.short_description = "Hierarchy Level"
 
 @admin.register(CalendarEvent)
 class CalendarEventAdmin(admin.ModelAdmin):
@@ -356,9 +377,10 @@ class NotificationAdmin(admin.ModelAdmin):
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
     list_display = ['employee', 'date', 'status', 'check_in_time', 'check_out_time', 'get_working_hours']
-    list_filter = ['status', 'date', 'employee']
+    list_filter = ['status', 'date', 'employee', 'leave_application', 'compoff_request']
     search_fields = ['employee__username', 'employee__first_name', 'employee__last_name']
     readonly_fields = ['created_at', 'updated_at', 'get_working_hours']
+    raw_id_fields = ['leave_application', 'compoff_request']
     
     fieldsets = (
         ('Employee & Date', {
@@ -366,6 +388,9 @@ class AttendanceAdmin(admin.ModelAdmin):
         }),
         ('Time Tracking', {
             'fields': ('check_in_time', 'check_out_time', 'get_working_hours')
+        }),
+        ('Leave/CompOff References', {
+            'fields': ('leave_application', 'compoff_request')
         }),
         ('Location Tracking', {
             'fields': ('check_in_latitude', 'check_in_longitude', 'check_in_address', 'check_out_latitude', 'check_out_longitude', 'check_out_address'),
@@ -452,3 +477,51 @@ class IVRCallLogAdmin(admin.ModelAdmin):
                     count += 1
         self.message_user(request, f'{count} new leads created from call logs.')
     create_leads_from_calls.short_description = "Create new leads from unassociated calls"
+
+@admin.register(LeaveType)
+class LeaveTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'days_allowed_per_year', 'carry_forward_allowed', 'max_carry_forward_days', 'requires_approval']
+    list_filter = ['carry_forward_allowed', 'requires_approval']
+    search_fields = ['name']
+    
+@admin.register(LeaveApplication)
+class LeaveApplicationAdmin(admin.ModelAdmin):
+    list_display = ['employee', 'leave_type', 'from_date', 'to_date', 'days_requested', 'status', 'created_at']
+    list_filter = ['leave_type', 'status', 'from_date', 'approved_by']
+    search_fields = ['employee__username', 'employee__first_name', 'employee__last_name', 'reason']
+    readonly_fields = ['created_at', 'updated_at', 'approved_at']
+    raw_id_fields = ['employee', 'approved_by']
+    
+    fieldsets = (
+        ('Leave Details', {
+            'fields': ('employee', 'leave_type', 'from_date', 'to_date', 'days_requested', 'reason')
+        }),
+        ('Status', {
+            'fields': ('status', 'approved_by', 'approved_at', 'rejection_reason')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+@admin.register(CompOffRequest)
+class CompOffRequestAdmin(admin.ModelAdmin):
+    list_display = ['employee', 'worked_date', 'requested_date', 'status', 'created_at']
+    list_filter = ['status', 'worked_date', 'approved_by']
+    search_fields = ['employee__username', 'employee__first_name', 'employee__last_name', 'reason']
+    readonly_fields = ['created_at', 'updated_at', 'approved_at']
+    raw_id_fields = ['employee', 'approved_by']
+    
+    fieldsets = (
+        ('Comp-Off Details', {
+            'fields': ('employee', 'worked_date', 'requested_date', 'reason')
+        }),
+        ('Status', {
+            'fields': ('status', 'approved_by', 'approved_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )

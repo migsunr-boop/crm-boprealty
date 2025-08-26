@@ -637,7 +637,7 @@ class TeamMember(models.Model):
     @property
     def monthly_performance(self):
         """Get current month performance"""
-        from django.db.models import Count
+        from django.db.models import Count, Sum
         current_month = timezone.now().month
         current_year = timezone.now().year
         
@@ -669,6 +669,72 @@ class TeamMember(models.Model):
             'site_visit_percentage': (site_visits / self.target_site_visits_monthly * 100) if self.target_site_visits_monthly else 0,
             'closure_percentage': (closures / self.target_closures_monthly * 100) if self.target_closures_monthly else 0,
         }
+    
+    @property
+    def leave_balance(self):
+        """Get current leave balance"""
+        current_year = timezone.now().year
+        
+        # Default leave types if none exist
+        default_balance = {
+            'annual_leave': {'allowed': 12, 'used': 0, 'remaining': 12},
+            'sick_leave': {'allowed': 8, 'used': 0, 'remaining': 8},
+            'casual_leave': {'allowed': 6, 'used': 0, 'remaining': 6}
+        }
+        
+        try:
+            from .models import LeaveType, LeaveApplication
+            # Get all leave types
+            leave_types = LeaveType.objects.all()
+            balance = {}
+            
+            for leave_type in leave_types:
+                # Calculate used leaves this year
+                used_leaves = LeaveApplication.objects.filter(
+                    employee=self.user,
+                    leave_type=leave_type,
+                    status='approved',
+                    from_date__year=current_year
+                ).aggregate(total=Sum('days_requested'))['total'] or 0
+                
+                balance[leave_type.name.lower().replace(' ', '_')] = {
+                    'allowed': leave_type.days_allowed_per_year,
+                    'used': used_leaves,
+                    'remaining': leave_type.days_allowed_per_year - used_leaves
+                }
+            
+            return balance if balance else default_balance
+        except:
+            return default_balance
+    
+    @property
+    def compoff_balance(self):
+        """Get comp-off balance"""
+        current_year = timezone.now().year
+        
+        try:
+            from .models import CompOffRequest
+            # Approved comp-offs earned
+            earned = CompOffRequest.objects.filter(
+                employee=self.user,
+                status='approved',
+                worked_date__year=current_year
+            ).count()
+            
+            # Comp-offs used (attendance marked as comp_off)
+            used = Attendance.objects.filter(
+                employee=self.user,
+                status='comp_off',
+                date__year=current_year
+            ).count()
+            
+            return {
+                'earned': earned,
+                'used': used,
+                'remaining': earned - used
+            }
+        except:
+            return {'earned': 0, 'used': 0, 'remaining': 0}
     
     class Meta:
         ordering = ['user__first_name', 'user__last_name']
@@ -946,8 +1012,19 @@ class Task(models.Model):
     stage = models.ForeignKey(TaskStage, on_delete=models.CASCADE)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
     due_date = models.DateField(null=True, blank=True)
+    due_time = models.TimeField(null=True, blank=True)
     completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Hierarchy support
+    parent_task = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subtasks')
+    order = models.PositiveIntegerField(default=0, help_text="Order within parent or stage")
+    original_stage = models.ForeignKey(TaskStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='original_tasks', help_text="Original stage for subtasks")
+    
+    # Event/Meeting details
+    venue = models.CharField(max_length=255, blank=True, help_text="Meeting venue or event location")
+    location = models.TextField(blank=True, help_text="Full address or location details")
+    event_date = models.DateTimeField(null=True, blank=True, help_text="Event or meeting date/time")
     
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, blank=True, related_name='tasks')
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE, null=True, blank=True, related_name='tasks')
@@ -964,6 +1041,13 @@ class Task(models.Model):
         self.completed = True
         self.completed_at = timezone.now()
         self.save()
+        
+        # Update parent task completion if all subtasks are complete
+        if self.parent_task:
+            parent = self.parent_task
+            all_subtasks_complete = parent.subtasks.filter(completed=False).count() == 0
+            if all_subtasks_complete and not parent.completed:
+                parent.mark_as_complete()
     
     @property
     def is_overdue(self):
@@ -971,8 +1055,38 @@ class Task(models.Model):
             return self.due_date < timezone.now().date()
         return False
     
+    @property
+    def is_parent_task(self):
+        return self.subtasks.exists()
+    
+    @property
+    def completion_percentage(self):
+        if not self.is_parent_task:
+            return 100 if self.completed else 0
+        
+        subtasks = self.subtasks.all()
+        if not subtasks:
+            return 100 if self.completed else 0
+        
+        completed_subtasks = subtasks.filter(completed=True).count()
+        return (completed_subtasks / subtasks.count()) * 100
+    
+    def get_hierarchy_level(self):
+        level = 0
+        current = self.parent_task
+        while current:
+            level += 1
+            current = current.parent_task
+        return level
+    
+    def save(self, *args, **kwargs):
+        # Set original stage for subtasks
+        if self.parent_task and not self.original_stage:
+            self.original_stage = self.parent_task.stage
+        super().save(*args, **kwargs)
+    
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['order', '-created_at']
 
 # Notification System
 class Notification(models.Model):
@@ -1008,6 +1122,80 @@ class Notification(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+# Leave Management
+class LeaveType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    days_allowed_per_year = models.PositiveIntegerField(default=0)
+    carry_forward_allowed = models.BooleanField(default=False)
+    max_carry_forward_days = models.PositiveIntegerField(default=0)
+    requires_approval = models.BooleanField(default=True)
+    color = models.CharField(max_length=7, default='#f59e0b')
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
+class LeaveApplication(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='leave_applications')
+    leave_type = models.ForeignKey(LeaveType, on_delete=models.CASCADE)
+    from_date = models.DateField()
+    to_date = models.DateField()
+    days_requested = models.PositiveIntegerField()
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_leaves')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.days_requested:
+            self.days_requested = (self.to_date - self.from_date).days + 1
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.employee.get_full_name()} - {self.leave_type.name} ({self.from_date} to {self.to_date})"
+    
+    class Meta:
+        ordering = ['-created_at']
+
+class CompOffRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='compoff_requests')
+    worked_date = models.DateField(help_text="Date when extra work was done")
+    requested_date = models.DateField(help_text="Date when comp-off is requested")
+    reason = models.TextField(help_text="Reason for working on holiday/weekend")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_compoffs')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.employee.get_full_name()} - Comp-off for {self.worked_date}"
+    
+    class Meta:
+        ordering = ['-created_at']
+
 # Attendance Management
 class Attendance(models.Model):
     STATUS_CHOICES = [
@@ -1017,6 +1205,7 @@ class Attendance(models.Model):
         ('half_day', 'Half Day'),
         ('work_from_home', 'Work From Home'),
         ('on_leave', 'On Leave'),
+        ('comp_off', 'Comp Off'),
     ]
     
     employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='attendance_records')
@@ -1028,12 +1217,17 @@ class Attendance(models.Model):
     
     working_hours = models.FloatField(null=True, blank=True)
     
+    # Location tracking
     check_in_latitude = models.DecimalField(max_digits=10, decimal_places=8, null=True, blank=True)
     check_in_longitude = models.DecimalField(max_digits=11, decimal_places=8, null=True, blank=True)
     check_in_address = models.TextField(blank=True)
     check_out_latitude = models.DecimalField(max_digits=10, decimal_places=8, null=True, blank=True)
     check_out_longitude = models.DecimalField(max_digits=11, decimal_places=8, null=True, blank=True)
     check_out_address = models.TextField(blank=True)
+    
+    # Leave/CompOff references
+    leave_application = models.ForeignKey(LeaveApplication, on_delete=models.SET_NULL, null=True, blank=True)
+    compoff_request = models.ForeignKey(CompOffRequest, on_delete=models.SET_NULL, null=True, blank=True)
     
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_attendance')
     created_at = models.DateTimeField(auto_now_add=True)

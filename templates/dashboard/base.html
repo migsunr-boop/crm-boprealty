@@ -52,7 +52,7 @@
            max-height: 400px;
        }
        .notification-list {
-           max-height: 300px;
+           max-height: z    0px;
            overflow-y: auto;
        }
        .notification-item {
@@ -261,16 +261,23 @@
                        </li>
                        
                        <li class="nav-item">
-                           <a class="nav-link {% if 'tata_chat' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'tata_chat_panel' %}">
+                           <a class="nav-link {% if 'whatsapp_interactive' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'whatsapp_interactive' %}">
                                <i class="fas fa-comments"></i>
-                               TATA Chat Panel
+                               WhatsApp Interactive
                            </a>
                        </li>
                        
                        <li class="nav-item">
-                           <a class="nav-link {% if 'tata_sync' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'tata_sync_panel' %}">
-                               <i class="fas fa-sync-alt"></i>
-                               TATA Sync Panel
+                           <a class="nav-link {% if 'whatsapp_campaigns' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'whatsapp_campaigns' %}">
+                               <i class="fas fa-paper-plane"></i>
+                               WhatsApp Campaigns
+                           </a>
+                       </li>
+                       
+                       <li class="nav-item">
+                           <a class="nav-link {% if 'tata_calls' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'tata_calls' %}">
+                               <i class="fas fa-phone"></i>
+                               IVR Panel
                            </a>
                        </li>
                        
@@ -300,7 +307,8 @@
                        <li class="nav-item">
                            <a class="nav-link" href="{% url 'logout' %}">
                                <i class="fas fa-sign-out-alt"></i>
-                               Logout
+                               
+                               
                            </a>
                        </li>
                    </ul>

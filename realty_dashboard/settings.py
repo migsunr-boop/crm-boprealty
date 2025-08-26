@@ -17,8 +17,27 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = ['*']
 
 # TATA API Configuration
-TATA_AUTH_TOKEN = os.getenv('TATA_AUTH_TOKEN', '')
-TATA_BASE_URL = os.getenv('TATA_BASE_URL', 'https://wb.omni.tatatelebusiness.com') 
+TATA_AUTH_TOKEN = os.getenv('TATA_AUTH_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwaG9uZU51bWJlciI6Iis5MTkzNTU0MjE2MTYiLCJwaG9uZU51bWJlcklkIjoiMTAwNTUxNjc5NzU0ODg3IiwiaWF0IjoxNjg2OTA5MDMzfQ.39dmKyOC6dSv83jdtw4dezjpX6NnLkdHueZHenVybkc')
+TATA_BASE_URL = os.getenv('TATA_BASE_URL', 'https://wb.omni.tatatelebusiness.com')
+
+# WhatsApp Configuration
+WHATSAPP_PHONE_NUMBER = os.getenv('WHATSAPP_PHONE_NUMBER', '+919355421616')
+WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID', '100551679754887')
+WABA_ID = os.getenv('WABA_ID', '101005859708868')
+FACEBOOK_BUSINESS_MANAGER_ID = os.getenv('FACEBOOK_BUSINESS_MANAGER_ID', '247009066912067')
+WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.getenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'bop_realty_webhook_verify_2024')
+
+# Integration IDs
+CRM_API_INTEGRATION_ID = os.getenv('CRM_API_INTEGRATION_ID', '688c9bda7a8e4dcedd266675')
+WHATSAPP_OPENAI_BOT_ID = os.getenv('WHATSAPP_OPENAI_BOT_ID', '6889cc1c555a708f04701a1f')
+CRM_WEBHOOK_URL = os.getenv('CRM_WEBHOOK_URL', 'https://crm-1z7t.onrender.com/webhook/')
+
+# TATA IVR Configuration
+TATA_IVR_TOKEN = os.getenv('TATA_IVR_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwaG9uZU51bWJlciI6Iis5MTkzNTU0MjE2MTYiLCJwaG9uZU51bWJlcklkIjoiMTAwNTUxNjc5NzU0ODg3IiwiaWF0IjoxNjg2OTA5MDMzfQ.39dmKyOC6dSv83jdtw4dezjpX6NnLkdHueZHenVybkc')
+
+# WhatsApp Rate Limiting (100k/24h = ~1.15 msg/sec)
+WHATSAPP_RATE_LIMIT_DELAY = float(os.getenv('WHATSAPP_RATE_LIMIT_DELAY', '1.25'))
+WHATSAPP_DAILY_LIMIT = int(os.getenv('WHATSAPP_DAILY_LIMIT', '100000')) 
 
 
 # Application definition

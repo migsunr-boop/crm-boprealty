@@ -1,0 +1,167 @@
+<div class="card task-card {% if task.is_parent_task %}parent-task{% elif task.parent_task %}subtask{% endif %}" 
+     data-category="{{ task.category.id|default:'' }}" 
+     data-priority="{{ task.priority }}" 
+     data-task-id="{{ task.id }}"
+     draggable="true" 
+     ondragstart="drag(event)"
+     ondrop="drop(event)"
+     ondragover="allowDrop(event)">
+    
+    <div class="task-priority priority-{{ task.priority }}"></div>
+    
+    <div class="card-body p-3">
+        <!-- Task Header -->
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="d-flex align-items-center">
+                {% if task.is_parent_task %}
+                    <button class="task-hierarchy-toggle me-2" 
+                            id="toggle-{{ task.id }}"
+                            onclick="toggleSubtasks({{ task.id }})">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                {% endif %}
+                <h6 class="card-title mb-0">{{ task.title }}</h6>
+            </div>
+            
+            <div class="dropdown">
+                <button class="btn btn-sm p-0" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="viewTaskDetails({{ task.id }})">
+                        <i class="fas fa-eye me-2"></i>View Details
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="editTask({{ task.id }})">
+                        <i class="fas fa-edit me-2"></i>Edit
+                    </a></li>
+                    {% if not task.completed %}
+                    <li><a class="dropdown-item" href="#" onclick="markAsComplete({{ task.id }})">
+                        <i class="fas fa-check me-2"></i>Mark Complete
+                    </a></li>
+                    {% endif %}
+                    {% if not task.is_parent_task %}
+                    <li><a class="dropdown-item" href="#" onclick="addSubtask({{ task.id }})">
+                        <i class="fas fa-plus me-2"></i>Add Subtask
+                    </a></li>
+                    {% endif %}
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" href="#" onclick="deleteTask({{ task.id }})">
+                        <i class="fas fa-trash me-2"></i>Delete
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Task Badges -->
+        <div class="mb-2">
+            {% if task.category %}
+            <span class="task-badge me-1" style="background-color: {{ task.category.color }}; color: white;">
+                {{ task.category.name }}
+            </span>
+            {% endif %}
+            
+            {% if task.completed %}
+            <span class="badge bg-success">Completed</span>
+            {% elif task.is_parent_task %}
+            <span class="badge bg-info">Parent Task</span>
+            {% elif task.parent_task %}
+            <span class="badge bg-secondary">Subtask</span>
+            {% endif %}
+        </div>
+        
+        <!-- Progress Bar for Parent Tasks -->
+        {% if task.is_parent_task %}
+        <div class="completion-bar">
+            <div class="completion-fill" style="width: {{ task.completion_percentage }}%"></div>
+        </div>
+        <div class="subtask-count">
+            {{ task.subtasks.count }} subtask{{ task.subtasks.count|pluralize }} 
+            ({{ task.completion_percentage|floatformat:0 }}% complete)
+        </div>
+        {% endif %}
+        
+        <!-- Task Description -->
+        {% if task.description %}
+        <p class="card-text text-muted small mb-2">{{ task.description|truncatechars:80 }}</p>
+        {% endif %}
+        
+        <!-- Location/Venue Info -->
+        {% if task.venue or task.location %}
+        <div class="mb-2">
+            {% if task.venue %}
+            <small class="text-muted d-block">
+                <i class="fas fa-map-marker-alt me-1"></i> {{ task.venue }}
+            </small>
+            {% endif %}
+            {% if task.location %}
+            <small class="text-muted d-block">
+                <i class="fas fa-location-arrow me-1"></i> {{ task.location|truncatechars:40 }}
+            </small>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- Task Meta Information -->
+        <div class="task-meta">
+            <div>
+                {% if task.due_date %}
+                    {% now "Y-m-d" as today %}
+                    {% if task.due_date|date:"Y-m-d" < today %}
+                        <span class="badge due-date-overdue">
+                            ⚠️ Overdue
+                        </span>
+                    {% elif task.due_date|date:"Y-m-d" == today %}
+                        <span class="badge due-date-warning">
+                            🕰️ Due Today
+                        </span>
+                    {% else %}
+                        <small class="text-muted">
+                            📅 {{ task.due_date|date:"M d" }}
+                        </small>
+                    {% endif %}
+                {% endif %}
+                {% if task.event_date %}
+                <small class="text-info d-block">
+                    📆 {{ task.event_date|date:"M d, H:i" }}
+                </small>
+                {% endif %}
+            </div>
+            
+            <!-- Assigned Users -->
+            <div class="avatar-stack">
+                {% for user in task.assigned_to.all %}
+                <div class="avatar" 
+                     title="{{ user.get_full_name }}" 
+                     draggable="true"
+                     ondragstart="dragAssignedUser(event, {{ user.id }}, {{ task.id }})"
+                     style="background: linear-gradient(135deg, #{{ user.id|add:123|stringformat:'x'|slice:':6' }}, #{{ user.id|add:456|stringformat:'x'|slice:':6' }});">
+                    {{ user.first_name.0 }}{{ user.last_name.0 }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Subtasks Container -->
+    {% if task.is_parent_task %}
+    <div class="subtasks-container collapsed" id="subtasks-{{ task.id }}">
+        {% for subtask in task.subtasks.all %}
+            {% include 'dashboard/task_card.html' with task=subtask %}
+        {% endfor %}
+        
+        <!-- Add Subtask Button -->
+        <button class="add-subtask-btn" onclick="addSubtask({{ task.id }})">
+            <i class="fas fa-plus me-1"></i> Add Subtask
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function dragAssignedUser(ev, userId, taskId) {
+    ev.stopPropagation();
+    ev.dataTransfer.setData("moveUser", userId);
+    ev.dataTransfer.setData("fromTask", taskId);
+    ev.target.classList.add('dragging');
+}
+</script>
