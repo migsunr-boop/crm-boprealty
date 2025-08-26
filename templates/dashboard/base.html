@@ -282,6 +282,13 @@
                        </li>
                        
                        <li class="nav-item">
+                           <a class="nav-link {% if 'ivr_leads' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'ivr_leads' %}">
+                               <i class="fas fa-phone-volume"></i>
+                               IVR Leads
+                           </a>
+                       </li>
+                       
+                       <li class="nav-item">
                            <a class="nav-link {% if 'team' in request.resolver_match.url_name and 'hierarchy' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'team' %}">
                                <i class="fas fa-user-friends"></i>
                                Team

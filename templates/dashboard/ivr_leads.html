@@ -1,0 +1,273 @@
+{% extends 'dashboard/base.html' %}
+
+{% block page_title %}IVR Leads{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>IVR Leads Management</h2>
+                <div>
+                    {% if unprocessed_count > 0 %}
+                    <button class="btn btn-primary me-2" onclick="processIVRCalls()">
+                        <i class="fas fa-sync"></i> Process {{ unprocessed_count }} Calls
+                    </button>
+                    {% endif %}
+                    <button class="btn btn-info" onclick="refreshAnalytics()">
+                        <i class="fas fa-chart-bar"></i> Refresh Analytics
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total IVR Leads</h5>
+                    <h3>{{ stats.total_ivr_leads }}</h3>
+                    <small>All time</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Quality Leads</h5>
+                    <h3>{{ stats.quality_leads }}</h3>
+                    <small>Duration > 1 minute</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Junk Leads</h5>
+                    <h3>{{ stats.junk_leads }}</h3>
+                    <small>Missed/Short calls</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Unprocessed Calls</h5>
+                    <h3>{{ unprocessed_count }}</h3>
+                    <small>Pending processing</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project-wise Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Leads by Project</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Project</th>
+                                    <th>Total Leads</th>
+                                    <th>Quality</th>
+                                    <th>Junk</th>
+                                    <th>Quality Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for project, counts in stats.by_project.items %}
+                                <tr>
+                                    <td>{{ project }}</td>
+                                    <td>{{ counts.total }}</td>
+                                    <td><span class="badge bg-success">{{ counts.quality }}</span></td>
+                                    <td><span class="badge bg-danger">{{ counts.junk }}</span></td>
+                                    <td>
+                                        {% widthratio counts.quality counts.total 100 %}%
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">No IVR leads found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Calls and Leads -->
+    <div class="row">
+        <!-- Recent IVR Calls -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent IVR Calls</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Phone</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for call in recent_calls %}
+                                <tr>
+                                    <td>{{ call.caller_id_number|slice:"-4:" }}</td>
+                                    <td>{{ call.call_duration_formatted }}</td>
+                                    <td>
+                                        {% if call.processed %}
+                                            <span class="badge bg-success">Processed</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">No calls found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quality Leads -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Quality Leads</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Stage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lead in quality_leads %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'view_lead' lead.id %}">{{ lead.name }}</a>
+                                    </td>
+                                    <td>{{ lead.phone|slice:"-4:" }}</td>
+                                    <td>
+                                        <span class="badge" style="background-color: {{ lead.current_stage.color }}">
+                                            {{ lead.current_stage.name }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">No quality leads</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Junk Leads -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Junk Leads</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lead in junk_leads %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'view_lead' lead.id %}">{{ lead.name }}</a>
+                                    </td>
+                                    <td>{{ lead.phone|slice:"-4:" }}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if "Missed" in lead.notes %}Missed Call{% else %}Short Call{% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">No junk leads</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function processIVRCalls() {
+    if (!confirm('Process all unprocessed IVR calls into leads?')) return;
+    
+    fetch('/process-ivr-calls/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const results = data.results;
+            alert(`Processing complete!\nNew leads: ${results.new_leads}\nUpdated leads: ${results.updated_leads}\nQuality leads: ${results.quality_leads}\nJunk leads: ${results.junk_leads}`);
+            location.reload();
+        } else {
+            alert('Error processing calls');
+        }
+    });
+}
+
+function refreshAnalytics() {
+    fetch('/ivr-lead-analytics/')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Analytics refreshed:', data);
+            location.reload();
+        });
+}
+
+// Auto-refresh every 30 seconds
+setInterval(() => {
+    if ({{ unprocessed_count }} > 0) {
+        location.reload();
+    }
+}, 30000);
+</script>
+{% endblock %}

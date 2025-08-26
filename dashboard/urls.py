@@ -4,6 +4,7 @@ from . import tata_campaign_views
 from . import tata_webhook_handler
 from . import whatsapp_webhook_handler
 from . import whatsapp_tracking_views
+from . import ivr_leads_views
 
 urlpatterns = [
     # Dashboard
@@ -43,6 +44,11 @@ urlpatterns = [
     path('send-interactive-message/', whatsapp_tracking_views.send_interactive_message, name='send_interactive_message'),
     path('generate-ai-template/', whatsapp_tracking_views.generate_ai_template, name='generate_ai_template'),
     path('interactive-analytics/', whatsapp_tracking_views.interactive_analytics, name='interactive_analytics'),
+    
+    # IVR Leads Management
+    path('ivr-leads/', ivr_leads_views.ivr_leads_dashboard, name='ivr_leads'),
+    path('process-ivr-calls/', ivr_leads_views.process_ivr_calls, name='process_ivr_calls'),
+    path('ivr-lead-analytics/', ivr_leads_views.ivr_lead_analytics, name='ivr_lead_analytics'),
     
     # TATA Sync API endpoints
     path('api/sync-tata-templates/', views.sync_tata_templates, name='sync_tata_templates'),
