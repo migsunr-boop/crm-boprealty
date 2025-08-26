@@ -1,4 +1,5 @@
 {% extends 'dashboard/base.html' %}
+{% load static %}
 
 {% block page_title %}IVR Leads{% endblock %}
 
@@ -9,11 +10,12 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>IVR Leads Management</h2>
                 <div>
-                    {% if unprocessed_count > 0 %}
-                    <button class="btn btn-primary me-2" onclick="processIVRCalls()">
-                        <i class="fas fa-sync"></i> Process {{ unprocessed_count }} Calls
+                    <button class="btn btn-success me-2" onclick="sendWhatsAppCampaign()">
+                        <i class="fab fa-whatsapp"></i> Send WhatsApp to Today's Leads
                     </button>
-                    {% endif %}
+                    <button class="btn btn-success me-2" onclick="syncFromIVRPanel()">
+                        <i class="fas fa-sync"></i> Clear & Sync Real Data
+                    </button>
                     <button class="btn btn-info" onclick="refreshAnalytics()">
                         <i class="fas fa-chart-bar"></i> Refresh Analytics
                     </button>
@@ -28,7 +30,7 @@
             <div class="card bg-primary text-white">
                 <div class="card-body">
                     <h5 class="card-title">Total IVR Leads</h5>
-                    <h3>{{ stats.total_ivr_leads }}</h3>
+                    <h3>{{ stats.total_leads }}</h3>
                     <small>All time</small>
                 </div>
             </div>
@@ -52,58 +54,17 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-warning text-white">
+            <div class="card bg-info text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Unprocessed Calls</h5>
-                    <h3>{{ unprocessed_count }}</h3>
-                    <small>Pending processing</small>
+                    <h5 class="card-title">Conversion Rate</h5>
+                    <h3>{{ stats.conversion_rate }}%</h3>
+                    <small>Quality rate</small>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Project-wise Statistics -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Leads by Project</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Project</th>
-                                    <th>Total Leads</th>
-                                    <th>Quality</th>
-                                    <th>Junk</th>
-                                    <th>Quality Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for project, counts in stats.by_project.items %}
-                                <tr>
-                                    <td>{{ project }}</td>
-                                    <td>{{ counts.total }}</td>
-                                    <td><span class="badge bg-success">{{ counts.quality }}</span></td>
-                                    <td><span class="badge bg-danger">{{ counts.junk }}</span></td>
-                                    <td>
-                                        {% widthratio counts.quality counts.total 100 %}%
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted">No IVR leads found</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Recent Calls and Leads -->
     <div class="row">
@@ -126,7 +87,7 @@
                             <tbody>
                                 {% for call in recent_calls %}
                                 <tr>
-                                    <td>{{ call.caller_id_number|slice:"-4:" }}</td>
+                                    <td>{{ call.caller_id_number }}</td>
                                     <td>{{ call.call_duration_formatted }}</td>
                                     <td>
                                         {% if call.processed %}
@@ -161,6 +122,7 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Phone</th>
+                                    <th>Project</th>
                                     <th>Stage</th>
                                 </tr>
                             </thead>
@@ -170,7 +132,14 @@
                                     <td>
                                         <a href="{% url 'view_lead' lead.id %}">{{ lead.name }}</a>
                                     </td>
-                                    <td>{{ lead.phone|slice:"-4:" }}</td>
+                                    <td>{{ lead.phone }}</td>
+                                    <td>
+                                        {% for project in lead.interested_projects.all %}
+                                            <small class="badge bg-info me-1">{{ project.name }}</small>
+                                        {% empty %}
+                                            <small class="text-muted">No project</small>
+                                        {% endfor %}
+                                    </td>
                                     <td>
                                         <span class="badge" style="background-color: {{ lead.current_stage.color }}">
                                             {{ lead.current_stage.name }}
@@ -179,7 +148,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted">No quality leads</td>
+                                    <td colspan="4" class="text-center text-muted">No quality leads</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -202,6 +171,7 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Phone</th>
+                                    <th>Project</th>
                                     <th>Reason</th>
                                 </tr>
                             </thead>
@@ -211,7 +181,14 @@
                                     <td>
                                         <a href="{% url 'view_lead' lead.id %}">{{ lead.name }}</a>
                                     </td>
-                                    <td>{{ lead.phone|slice:"-4:" }}</td>
+                                    <td>{{ lead.phone }}</td>
+                                    <td>
+                                        {% for project in lead.interested_projects.all %}
+                                            <small class="badge bg-secondary me-1">{{ project.name }}</small>
+                                        {% empty %}
+                                            <small class="text-muted">No project</small>
+                                        {% endfor %}
+                                    </td>
                                     <td>
                                         <small class="text-muted">
                                             {% if "Missed" in lead.notes %}Missed Call{% else %}Short Call{% endif %}
@@ -220,7 +197,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted">No junk leads</td>
+                                    <td colspan="4" class="text-center text-muted">No junk leads</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -232,27 +209,108 @@
     </div>
 </div>
 
+{% csrf_token %}
 <script>
-function processIVRCalls() {
-    if (!confirm('Process all unprocessed IVR calls into leads?')) return;
+function sendWhatsAppCampaign() {
+    if (!confirm('Send WhatsApp templates to all today\'s IVR leads?')) return;
     
-    fetch('/process-ivr-calls/', {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch('/send-whatsapp-ivr-leads/', {
         method: 'POST',
         headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
         }
     })
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
             const results = data.results;
-            alert(`Processing complete!\nNew leads: ${results.new_leads}\nUpdated leads: ${results.updated_leads}\nQuality leads: ${results.quality_leads}\nJunk leads: ${results.junk_leads}`);
-            location.reload();
+            alert(`WhatsApp Campaign Complete!\nSent: ${results.sent_successfully}\nFailed: ${results.failed}\nTotal Leads: ${results.total_leads}`);
         } else {
-            alert('Error processing calls');
+            alert('Error: ' + data.message);
         }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fab fa-whatsapp"></i> Send WhatsApp to Today\'s Leads';
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fab fa-whatsapp"></i> Send WhatsApp to Today\'s Leads';
     });
 }
+
+function syncFromIVRPanel() {
+    if (!confirm('Sync latest calls from TATA panel to CRM leads?')) return;
+    
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch('/sync-ivr-data/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const summary = data.summary;
+            alert(`✅ Live Sync Complete!\nTotal calls: ${summary.total_calls}\nNew leads: ${summary.new_leads_created}\nUpdated leads: ${summary.updated_leads}`);
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> Sync Latest TATA Calls';
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> Sync Latest TATA Calls';
+    });
+}
+
+
 
 function refreshAnalytics() {
     fetch('/ivr-lead-analytics/')
@@ -263,11 +321,6 @@ function refreshAnalytics() {
         });
 }
 
-// Auto-refresh every 30 seconds
-setInterval(() => {
-    if ({{ unprocessed_count }} > 0) {
-        location.reload();
-    }
-}, 30000);
+
 </script>
 {% endblock %}

@@ -3,6 +3,7 @@ from . import views
 from . import tata_campaign_views
 from . import tata_webhook_handler
 from . import whatsapp_webhook_handler
+from . import ivr_webhook_handler
 from . import whatsapp_tracking_views
 from . import ivr_leads_views
 
@@ -47,8 +48,9 @@ urlpatterns = [
     
     # IVR Leads Management
     path('ivr-leads/', ivr_leads_views.ivr_leads_dashboard, name='ivr_leads'),
-    path('process-ivr-calls/', ivr_leads_views.process_ivr_calls, name='process_ivr_calls'),
+    path('send-whatsapp-ivr-leads/', ivr_leads_views.send_whatsapp_to_ivr_leads, name='send_whatsapp_ivr_leads'),
     path('ivr-lead-analytics/', ivr_leads_views.ivr_lead_analytics, name='ivr_lead_analytics'),
+    path('sync-ivr-data/', ivr_leads_views.sync_ivr_data, name='sync_ivr_data'),
     
     # TATA Sync API endpoints
     path('api/sync-tata-templates/', views.sync_tata_templates, name='sync_tata_templates'),
@@ -164,6 +166,7 @@ urlpatterns = [
     path('api/tata/dashboard/', views.tata_call_dashboard, name='tata_call_dashboard'),
     
     # IVR Webhook endpoints (matching your TATA configuration)
+    path('webhook/ivr/calls/', ivr_webhook_handler.ivr_webhook_handler, name='ivr_calls_webhook'),
     path('ivr-webhooks/webhook/tata-tele/1/', views.handle_ivr_webhook, name='ivr_webhook_1'),
     path('ivr-webhooks/webhook/tata-tele/2/', views.handle_ivr_webhook, name='ivr_webhook_2'),
     
